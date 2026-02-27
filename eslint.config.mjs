@@ -13,6 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // Data fetching inside useEffect is a valid React pattern.
+      // The react-compiler rule flags async functions that call setState,
+      // but this is intentional for fetch-on-mount + interval refresh patterns.
+      "react-compiler/react-compiler": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

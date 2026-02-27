@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { requireIngestToken } from "@/lib/apiAuth";
+
+
+
 
 const schema = z.object({
   service: z.string().min(2),
@@ -9,6 +13,11 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const auth = requireIngestToken(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
