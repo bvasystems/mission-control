@@ -12,6 +12,10 @@ return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 try {
 const body = await request.json();
 
+if (!body?.agent_id) {
+return NextResponse.json({ error: 'agent_id is required' }, { status: 400 });
+}
+
 // Processamento principal (transacional)
 const result = await processAgentEvent(body);
 

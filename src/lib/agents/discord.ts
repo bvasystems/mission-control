@@ -1,13 +1,37 @@
-function resolveAgentChannel(agentId: string): string {
-  const fallback = process.env.DISCORD_FALLBACK_CHANNEL_ID || '';
+import { db } from '@/lib/db';
+
+function resolveAgentChannelFromEnv(agentId: string): string | null {
   try {
     const mapStr = process.env.DISCORD_AGENT_CHANNEL_MAP || '{}';
     const map = JSON.parse(mapStr);
-    return map[agentId] || fallback;
+    return map[agentId] || null;
   } catch {
-    console.warn('Error parsing DISCORD_AGENT_CHANNEL_MAP fallback using', fallback);
-    return fallback;
+    console.warn('Error parsing DISCORD_AGENT_CHANNEL_MAP');
+    return null;
   }
+}
+
+async function resolveChannelFromDb(agentId: string): Promise<string | null> {
+  try {
+    const { rows } = await db.query(
+      `SELECT discord_channel_id FROM agents WHERE agent_id = $1 AND active = TRUE LIMIT 1`,
+      [agentId]
+    );
+    return rows[0]?.discord_channel_id || null;
+  } catch (error) {
+    console.error('Error querying agents table for discord channel:', error);
+    return null;
+  }
+}
+
+async function getChannelForAgent(agentId: string): Promise<string | null> {
+  const dbChannel = await resolveChannelFromDb(agentId);
+  if (dbChannel) return dbChannel;
+  
+  const envChannel = resolveAgentChannelFromEnv(agentId);
+  if (envChannel) return envChannel;
+
+  return process.env.DISCORD_FALLBACK_CHANNEL_ID || null;
 }
 
 async function sendDiscordMessage(channelId: string, content: string): Promise<void> {
@@ -46,11 +70,17 @@ async function sendDiscordMessage(channelId: string, content: string): Promise<v
 
 export async function notifyAgentEvent(payload: { type: string; agent_id: string; task_id?: string; stage?: string; message?: string }) {
   const { type, agent_id, task_id, stage, message } = payload;
-  const channel = resolveAgentChannel(agent_id);
+  if (type === 'heartbeat') return;
+
+  const channel = await getChannelForAgent(agent_id);
   
   console.info("[discord] agent_id=", payload.agent_id);
-  console.info("[discord] map=", process.env.DISCORD_AGENT_CHANNEL_MAP);
   console.info("[discord] resolved_channel=", channel);
+
+  if (!channel) {
+    console.warn(`[discord] no channel resolved for agent ${agent_id}, skipping notification.`);
+    return;
+  }
 
   let content = '';
 
