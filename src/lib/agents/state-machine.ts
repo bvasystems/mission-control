@@ -11,24 +11,26 @@ export async function processAgentEvent(payload: AgentEventPayload) {
   try {
     await client.query('BEGIN');
 
-    // INSERT EVENT (Idempotency by event_id)
-    let insertEvent;
-    try {
-      insertEvent = await client.query(
-        `INSERT INTO agent_events (event_id, agent_id, task_id, command_id, event_type, status, stage, message, meta_json, occurred_at, source, message_id, dem_id, channel_id) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), 'system', $10, $11, 'chn_system')
-         ON CONFLICT (event_id) DO NOTHING`,
-        [event_id, agent_id, task_id || null, command_id, type, status, stage, message, meta ? JSON.stringify(meta) : null, 'msg_' + event_id, 'dem_' + (task_id || event_id)]
-      );
-    } catch {
-      // Fallback para schema antigo se meta_json não existir
-      insertEvent = await client.query(
-        `INSERT INTO agent_events (event_id, agent_id, task_id, command_id, event_type, status, stage, message, payload, occurred_at, source, message_id, dem_id, channel_id) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), 'system', $10, $11, 'chn_system')
-         ON CONFLICT (event_id) DO NOTHING`,
-        [event_id, agent_id, task_id || null, command_id, type, status, stage, message, meta ? JSON.stringify(meta) : '{}', 'msg_' + event_id, 'dem_' + (task_id || event_id)]
-      );
-    }
+    const insertEvent = await client.query(
+      `INSERT INTO agent_events 
+       (event_id, agent_id, task_id, command_id, event_type, status, stage, message, payload, occurred_at, source, message_id, dem_id, channel_id) 
+       VALUES 
+       ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, NOW(), 'system', $10, $11, 'chn_system')
+       ON CONFLICT (event_id) DO NOTHING`,
+      [
+        event_id, 
+        agent_id, 
+        task_id || null, 
+        command_id || null, 
+        type, 
+        status, 
+        stage || null, 
+        message || null, 
+        JSON.stringify(meta ?? {}), 
+        'msg_' + event_id, 
+        'dem_' + (task_id || event_id)
+      ]
+    );
 
     if (insertEvent.rowCount === 0) {
       await client.query('ROLLBACK');
