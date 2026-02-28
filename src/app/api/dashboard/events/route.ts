@@ -162,9 +162,9 @@ where dem_id=$1`,
 
 await client.query("commit");
 return NextResponse.json({ ok: true, processed: true });
-} catch (err: any) {
+} catch (err: unknown) {
 await client.query("rollback");
-return NextResponse.json({ error: err.message }, { status: 500 });
+return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
 } finally {
 client.release();
 }

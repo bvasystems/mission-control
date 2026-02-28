@@ -39,13 +39,14 @@ const role = getRole(session.user?.email);
 return (
 <div className="space-y-3">
 <div className="flex items-center gap-3">
-{session.user?.image ? (
-<img
-src={session.user.image}
-alt="avatar"
-className="h-9 w-9 rounded-full border border-zinc-700"
-/>
-) : (
+        {session.user?.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={session.user.image}
+            alt="avatar"
+            className="h-9 w-9 rounded-full border border-zinc-700"
+          />
+        ) : (
 <div className="h-9 w-9 rounded-full border border-zinc-700 bg-zinc-900 flex items-center justify-center text-xs">
 {session.user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
 </div>
