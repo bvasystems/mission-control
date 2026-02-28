@@ -46,7 +46,8 @@ setTasks(json.data ?? []);
 }
 
 useEffect(() => {
-refresh();
+const t1 = setTimeout(refresh, 0);
+return () => clearTimeout(t1);
 }, []);
 
 const grouped = useMemo(() => {

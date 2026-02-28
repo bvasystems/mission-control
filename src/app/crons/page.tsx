@@ -33,9 +33,9 @@ setLoading(false);
 }
 
 useEffect(() => {
-refresh();
-const t = setInterval(refresh, 30000);
-return () => clearInterval(t);
+const t1 = setTimeout(refresh, 0);
+const t2 = setInterval(refresh, 30000);
+return () => { clearTimeout(t1); clearInterval(t2); };
 }, []);
 return (
 <main className="p-6 md:p-8">

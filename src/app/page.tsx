@@ -106,9 +106,9 @@ return counts;
 }, [taskList]);
 
 useEffect(() => {
-refresh();
-const timer = setInterval(refresh, 20000);
-return () => clearInterval(timer);
+const t1 = setTimeout(refresh, 0);
+const t2 = setInterval(refresh, 20000);
+return () => { clearTimeout(t1); clearInterval(t2); };
 }, []);
 return (
 <main className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10">
