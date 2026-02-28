@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AuthButton from "@/components/AuthButton";
+
 
 const items = [
 { href: "/", label: "Dashboard" },
@@ -20,6 +22,10 @@ return (
 <h1 className="text-lg font-semibold mb-6">BVA Systems</h1>
 
 <nav className="space-y-1">
+    <div className="mt-6 pt-4 border-t border-zinc-800">
+<AuthButton />
+</div>
+
 {items.map((item) => {
 const active = pathname === item.href;
 return (
