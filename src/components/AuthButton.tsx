@@ -26,10 +26,10 @@ Carregando...
 if (!session) {
 return (
 <button
-onClick={() => signIn("google")}
-className="w-full text-sm border border-zinc-700 rounded-xl px-3 py-2 hover:bg-zinc-900"
+onClick={() => signIn()}
+className="w-full text-sm border border-zinc-700 rounded-xl px-3 py-2 hover:bg-zinc-900 bg-zinc-900/50"
 >
-Entrar com Google
+Acessar Painel
 </button>
 );
 }

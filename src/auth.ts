@@ -1,19 +1,31 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-providers: [
-Google({
-clientId: process.env.GOOGLE_CLIENT_ID!,
-clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-}),
-],
-session: { strategy: "jwt" },
-callbacks: {
-async signIn({ profile }) {
-// opcional: restringir domínio
-// return profile?.email?.endsWith("@bvasystems.com") ?? false;
-return true;
-},
-},
+  providers: [
+    Credentials({
+      name: "Acesso Restrito",
+      credentials: {
+        email: { label: "E-mail", type: "email", placeholder: "admin@bvasystems.com.br" },
+        password: { label: "Senha", type: "password" },
+      },
+      async authorize(credentials) {
+        // Você pode configurar estas variáveis no seu .env.local e lá na Vercel
+        const adminEmail = process.env.ADMIN_EMAIL || "admin@bvasystems.com.br";
+        const adminPass = process.env.ADMIN_PASSWORD || "admin123";
+
+        if (credentials?.email === adminEmail && credentials?.password === adminPass) {
+          return {
+            id: "1",
+            name: "Administrador BVA",
+            email: adminEmail,
+          };
+        }
+
+        // Se retornar nulo, o login é negado
+        return null;
+      },
+    }),
+  ],
+  session: { strategy: "jwt" },
 });
