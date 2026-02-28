@@ -59,7 +59,7 @@ return () => { clearTimeout(t1); clearInterval(t2); };
         <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border-t-[3px] border-t-emerald-500/50 mt-8">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-sm text-left">
-              <thead className="bg-zinc-900/60 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/10">
+              <thead className="bg-black/60 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/10">
                 <tr>
                   <th className="font-medium p-4">Cron Job</th>
                   <th className="font-medium p-4">Schedule</th>

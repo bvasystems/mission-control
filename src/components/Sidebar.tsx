@@ -57,7 +57,7 @@ export default function Sidebar() {
       <div className="flex-1" />
 
       {/* Bottom */}
-      <div className="p-4 border-t border-white/10 bg-zinc-900/40">
+      <div className="p-4 border-t border-white/10 bg-black/40">
         <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3 px-2 font-medium">Operator Session</p>
         <AuthButton />
       </div>
