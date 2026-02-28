@@ -27,14 +27,16 @@ async function sendDiscordMessage(channelId: string, content: string): Promise<v
       body: JSON.stringify({ content })
     });
 
+    const body = await res.text();
+    console.info("[discord] status=", res.status, "body=", body);
+
     if (!res.ok) {
       if (res.status === 429) {
         const retryAfter = res.headers.get('retry-after') || '1';
         console.warn(`Discord rate limit, retry after ${retryAfter}s`);
         setTimeout(() => sendDiscordMessage(channelId, content), parseInt(retryAfter) * 1000);
       } else {
-        const text = await res.text();
-        console.error(`Discord message failed: ${res.status} ${text}`);
+        console.error(`Discord message failed: ${res.status} ${body}`);
       }
     }
   } catch (e) {
@@ -46,6 +48,10 @@ export async function notifyAgentEvent(payload: { type: string; agent_id: string
   const { type, agent_id, task_id, stage, message } = payload;
   const channel = resolveAgentChannel(agent_id);
   
+  console.info("[discord] agent_id=", payload.agent_id);
+  console.info("[discord] map=", process.env.DISCORD_AGENT_CHANNEL_MAP);
+  console.info("[discord] resolved_channel=", channel);
+
   let content = '';
 
   switch (type) {
