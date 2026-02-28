@@ -9,10 +9,15 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { title, agent_id, payload, stage } = body;
+    const { agent_id, payload, stage } = body;
+    
+    const taskTitle = String(body?.title ?? '').trim();
+    if (!taskTitle) {
+      return NextResponse.json({ error: 'title is required' }, { status: 400 });
+    }
 
-    if (!title || !agent_id) {
-      return NextResponse.json({ error: 'Missing required fields: title, agent_id' }, { status: 400 });
+    if (!agent_id) {
+      return NextResponse.json({ error: 'Missing required field: agent_id' }, { status: 400 });
     }
 
     const command_id = `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -21,7 +26,7 @@ export async function POST(request: Request) {
       `INSERT INTO tasks (title, assigned_to, status, stage, command_id, payload_json, created_at, updated_at)
        VALUES ($1, $2, 'queued', $3, $4, $5, NOW(), NOW())
        RETURNING id`,
-      [title, agent_id, stage || 'todo', command_id, payload ? JSON.stringify(payload) : null]
+      [taskTitle, agent_id, stage || 'todo', command_id, payload ? JSON.stringify(payload) : null]
     );
 
     const task_id = rows[0].id;
