@@ -12,41 +12,27 @@ export async function processAgentEvent(payload: AgentEventPayload) {
     await client.query('BEGIN');
 
     // INSERT EVENT (Idempotency by event_id)
+    let insertEvent;
     try {
-      await client.query(
+      insertEvent = await client.query(
         `INSERT INTO agent_events (event_id, agent_id, task_id, command_id, event_type, status, stage, message, meta_json, occurred_at, source, message_id, dem_id, channel_id) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), 'system', $10, $11, 'chn_system')`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), 'system', $10, $11, 'chn_system')
+         ON CONFLICT (event_id) DO NOTHING`,
         [event_id, agent_id, task_id || null, command_id, type, status, stage, message, meta ? JSON.stringify(meta) : null, 'msg_' + event_id, 'dem_' + (task_id || event_id)]
       );
-    } catch (e: unknown) {
-      const err = e as { code?: string };
-      if (err.code === '23505' || err.code === '23502') { 
-        // Unique violation or not null violation that we might fallback
-        if (err.code === '23505') {
-            await client.query('ROLLBACK');
-            return { ok: true, duplicate: true }; 
-        } else {
-            // fallback generic insert without rigid constraints in case DB differs slightly
-            // Ignoring for now but ensuring rollback occurs and re-throws
-            throw e;
-        }
-      } else {
-          try {
-             // Fallback for previous db state
-             await client.query(
-                `INSERT INTO agent_events (event_id, agent_id, task_id, command_id, event_type, status, stage, message, payload, occurred_at, source, message_id, dem_id, channel_id) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), 'system', $10, $11, 'chn_system')`,
-                [event_id, agent_id, task_id || null, command_id, type, status, stage, message, meta ? JSON.stringify(meta) : '{}', 'msg_' + event_id, 'dem_' + (task_id || event_id)]
-              );
-          } catch(errFallback: unknown) {
-            const fbErr = errFallback as { code?: string };
-            if (fbErr.code === '23505') {
-                await client.query('ROLLBACK');
-                return { ok: true, duplicate: true }; 
-            }
-            throw errFallback;
-          }
-      }
+    } catch {
+      // Fallback para schema antigo se meta_json não existir
+      insertEvent = await client.query(
+        `INSERT INTO agent_events (event_id, agent_id, task_id, command_id, event_type, status, stage, message, payload, occurred_at, source, message_id, dem_id, channel_id) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), 'system', $10, $11, 'chn_system')
+         ON CONFLICT (event_id) DO NOTHING`,
+        [event_id, agent_id, task_id || null, command_id, type, status, stage, message, meta ? JSON.stringify(meta) : '{}', 'msg_' + event_id, 'dem_' + (task_id || event_id)]
+      );
+    }
+
+    if (insertEvent.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return { ok: true, duplicate: true };
     }
 
     if (type !== 'heartbeat') {
@@ -97,9 +83,10 @@ export async function processAgentEvent(payload: AgentEventPayload) {
 
     await client.query('COMMIT');
     
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
+  } catch (error: unknown) {
+    try { await client.query('ROLLBACK'); } catch {}
+    const errorMessage = error instanceof Error ? error.message : "internal_error";
+    throw new Error(errorMessage);
   } finally {
     client.release();
   }
