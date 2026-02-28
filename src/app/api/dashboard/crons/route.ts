@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const q = await db.query(
     `select id, name, schedule, last_run, next_run, status, last_result, consecutive_errors, updated_at

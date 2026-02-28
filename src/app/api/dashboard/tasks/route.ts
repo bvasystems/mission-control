@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   const token = request.headers.get('x-mc-token');
   if (token !== process.env.MC_TOKEN && token !== process.env.MC_API_TOKEN) {

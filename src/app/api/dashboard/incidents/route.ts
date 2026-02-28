@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
 const createSchema = z.object({
 title: z.string().min(3),
 severity: z.enum(["low", "medium", "high", "critical"]),
