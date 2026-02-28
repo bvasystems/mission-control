@@ -6,4 +6,9 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is required');
 }
 
-export const db = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
+const parsedConnectionString = connectionString.replace(
+  'sslmode=require',
+  'sslmode=require&uselibpqcompat=true'
+);
+
+export const db = new Pool({ connectionString: parsedConnectionString, ssl: { rejectUnauthorized: false } });
