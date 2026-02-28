@@ -110,179 +110,185 @@ const t1 = setTimeout(refresh, 0);
 const t2 = setInterval(refresh, 20000);
 return () => { clearTimeout(t1); clearInterval(t2); };
 }, []);
-return (
-<main className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10">
-<div className="max-w-7xl mx-auto space-y-6">
-<header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-<div>
-<p className="text-xs uppercase tracking-wider text-zinc-400">Mission Control</p>
-<h1 className="text-3xl font-semibold">Painel Operacional</h1>
-<p className="text-zinc-400 text-sm">
-Founder + Dev view: execução, risco, saúde de serviços e ritmo do time.
-</p>
-</div>
-<button
-onClick={refresh}
-className="border border-zinc-700 rounded-xl px-4 py-2 text-sm hover:bg-zinc-900"
->
-Atualizar agora
-</button>
-</header>
+  return (
+    <main className="min-h-screen text-zinc-100 p-6 md:p-10 relative">
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 blur-[120px] rounded-full pointer-events-none"></div>
+      
+      <div className="max-w-7xl mx-auto space-y-8 relative z-10">
+        <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-blue-400 font-semibold mb-2">Central de Operações</p>
+            <h1 className="text-3xl font-medium tracking-tight">Painel Executivo</h1>
+            <p className="text-zinc-500 text-sm mt-1">
+              Visão macro: execução, risco e saúde dos serviços em tempo real.
+            </p>
+          </div>
+          <button
+            onClick={refresh}
+            className="border border-blue-500/30 bg-blue-500/10 text-blue-400 rounded-lg px-4 py-2 text-xs uppercase tracking-wider font-medium hover:bg-blue-500/20 transition-colors"
+          >
+            Atualizar agora
+          </button>
+        </header>
 
-{/* KPI cards */}
-<section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-<Card title="Pending" value={String(summary.pending)} />
-<Card title="Done" value={String(summary.done)} />
-<Card title="Blocked" value={String(summary.blocked)} />
-<Card title="Health Checks" value={String(healthList.length)} />
-</section>
+        {/* KPI cards */}
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card title="Pending" value={String(summary.pending)} />
+          <Card title="Done" value={String(summary.done)} />
+          <Card title="Blocked" value={String(summary.blocked)} />
+          <Card title="Health Checks" value={String(healthList.length)} />
+        </section>
 
-{/* Create task */}
-<section className="border border-zinc-800 rounded-2xl p-4 md:p-5 bg-zinc-900/40">
-<h2 className="text-lg font-medium mb-3">Nova Task</h2>
-<div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-<input
-className="md:col-span-6 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2"
-placeholder="Ex: Revisar cron watchdog com retry x3"
-value={title}
-onChange={(e) => setTitle(e.target.value)}
-/>
-<select
-className="md:col-span-2 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2"
-value={priority}
-onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high" | "critical")}
->
-<option value="low">low</option>
-<option value="medium">medium</option>
-<option value="high">high</option>
-<option value="critical">critical</option>
-</select>
-<input
-className="md:col-span-2 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2"
-placeholder="assigned_to"
-value={assignedTo}
-onChange={(e) => setAssignedTo(e.target.value)}
-/>
-<button
-onClick={createTask}
-disabled={loading}
-className="md:col-span-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 px-3 py-2"
->
-{loading ? "Criando..." : "Criar task"}
-</button>
-</div>
-</section>
+        {/* Create task */}
+        <section className="glass rounded-2xl p-4 md:p-6 shadow-2xl shadow-black/50">
+          <h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium mb-4">Nova Demanda</h2>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+            <input
+              className="md:col-span-6 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-zinc-600"
+              placeholder="Ex: Revisar cron watchdog com retry x3"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <select
+              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 transition-all text-zinc-300"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high" | "critical")}
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+            <input
+              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-600"
+              placeholder="Owner"
+              value={assignedTo}
+              onChange={(e) => setAssignedTo(e.target.value)}
+            />
+            <button
+              onClick={createTask}
+              disabled={loading}
+              className="md:col-span-2 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-500 disabled:opacity-50 px-4 py-2.5 transition-colors shadow-[0_0_15px_rgba(37,99,235,0.3)] shadow-blue-500/20"
+            >
+              {loading ? "Processando..." : "Despachar"}
+            </button>
+          </div>
+        </section>
 
-{/* Tasks + Health */}
-<section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-<div className="border border-zinc-800 rounded-2xl p-4 bg-zinc-900/40">
-<h2 className="text-lg font-medium mb-3">Tasks</h2>
-<div className="space-y-2 max-h-[420px] overflow-auto pr-1">
-{taskList.length === 0 && <p className="text-sm text-zinc-400">Sem tasks ainda.</p>}
-{taskList.map((t) => (
-<div key={t.id} className="border border-zinc-800 rounded-xl p-3 bg-zinc-950/60">
-<div className="flex items-start justify-between gap-3">
-<div>
-<p className="font-medium">{t.title}</p>
-<p className="text-xs text-zinc-400">
-prioridade: <b>{t.priority}</b> • owner: <b>{t.assigned_to || "-"}</b>
-</p>
-</div>
-<span className={`text-xs border rounded-full px-2 py-1 ${badge[t.status]}`}>
-{t.status}
-</span>
-</div>
-<div className="flex gap-2 mt-3">
-<button
-onClick={() => updateTask(t.id, "pending")}
-className="text-xs border border-zinc-700 rounded-lg px-2 py-1 hover:bg-zinc-900"
->
-pending
-</button>
-<button
-onClick={() => updateTask(t.id, "done")}
-className="text-xs border border-zinc-700 rounded-lg px-2 py-1 hover:bg-zinc-900"
->
-done
-</button>
-<button
-onClick={() => updateTask(t.id, "blocked")}
-className="text-xs border border-zinc-700 rounded-lg px-2 py-1 hover:bg-zinc-900"
->
-blocked
-</button>
-</div>
-</div>
-))}
-</div>
-</div>
+        {/* Tasks + Health */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="glass rounded-2xl p-5 shadow-xl shadow-black/50">
+            <h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium mb-4">Filas de Execução</h2>
+            <div className="space-y-3 max-h-[420px] overflow-auto pr-2 custom-scrollbar">
+              {taskList.length === 0 && <p className="text-sm text-zinc-500 italic">Sem tarefas ativas.</p>}
+              {taskList.map((t) => (
+                <div key={t.id} className="border border-white/5 rounded-xl p-4 bg-black/40 hover:bg-black/60 transition-colors group">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm text-zinc-200 truncate">{t.title}</p>
+                      <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-wider">
+                        PRIORITY: <span className={t.priority === 'critical' ? 'text-red-400 font-bold' : 'text-zinc-300'}>{t.priority}</span> • OWNER: <span className="text-zinc-300">{t.assigned_to || "-"}</span>
+                      </p>
+                    </div>
+                    <span className={`text-[10px] uppercase font-mono tracking-wider border rounded px-2 py-0.5 whitespace-nowrap ${badge[t.status]}`}>
+                      {t.status}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <button
+                      onClick={() => updateTask(t.id, "pending")}
+                      className="text-[10px] uppercase tracking-wider border border-white/10 rounded-md px-2 py-1 hover:bg-white/10 hover:text-white text-zinc-400 transition-colors"
+                    >
+                      Wait
+                    </button>
+                    <button
+                      onClick={() => updateTask(t.id, "done")}
+                      className="text-[10px] uppercase tracking-wider border border-white/10 rounded-md px-2 py-1 hover:bg-emerald-500/20 hover:text-emerald-400 hover:border-emerald-500/30 text-zinc-400 transition-colors"
+                    >
+                      Done
+                    </button>
+                    <button
+                      onClick={() => updateTask(t.id, "blocked")}
+                      className="text-[10px] uppercase tracking-wider border border-white/10 rounded-md px-2 py-1 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 text-zinc-400 transition-colors"
+                    >
+                      Block
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-<div className="border border-zinc-800 rounded-2xl p-4 bg-zinc-900/40">
-<h2 className="text-lg font-medium mb-3">Health Checks</h2>
-<div className="space-y-2 max-h-[420px] overflow-auto pr-1">
-{healthList.length === 0 && (
-<p className="text-sm text-zinc-400">Sem health checks ainda.</p>
-)}
-{healthList.map((h) => (
-<div key={h.id} className="border border-zinc-800 rounded-xl p-3 bg-zinc-950/60">
-<div className="flex items-start justify-between gap-3">
-<div>
-<p className="font-medium">{h.service}</p>
-<p className="text-xs text-zinc-400">
-{new Date(h.last_check).toLocaleString()} • uptime:{" "}
-{h.uptime_pct != null ? `${h.uptime_pct}%` : "-"}
-</p>
-</div>
-<span className={`text-xs border rounded-full px-2 py-1 ${badge[h.status]}`}>
-{h.status}
-</span>
-</div>
-</div>
-))}
-</div>
-</div>
-</section>
+          <div className="glass rounded-2xl p-5 shadow-xl shadow-black/50">
+            <h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium mb-4">Monitoramento de Saúde</h2>
+            <div className="space-y-3 max-h-[420px] overflow-auto pr-2 custom-scrollbar">
+              {healthList.length === 0 && (
+                <p className="text-sm text-zinc-500 italic">Varredura limpa. Sem serviços mapeados.</p>
+              )}
+              {healthList.map((h) => (
+                <div key={h.id} className="border border-white/5 rounded-xl p-4 bg-black/40 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-2 h-2 rounded-full shadow-[0_0_8px] ${h.status === 'healthy' ? 'bg-emerald-500 shadow-emerald-500' : h.status === 'down' ? 'bg-red-500 shadow-red-500 animate-pulse' : 'bg-yellow-500 shadow-yellow-500 animate-pulse'}`}></div>
+                    <div>
+                      <p className="font-medium text-sm text-zinc-200">{h.service}</p>
+                      <p className="text-[10px] text-zinc-500 font-mono mt-1">
+                        LAST PING: {new Date(h.last_check).toLocaleTimeString()} • UP:{" "}
+                        {h.uptime_pct != null ? <span className="text-emerald-400">{h.uptime_pct}%</span> : "-"}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] uppercase font-mono tracking-wider border rounded px-2 py-0.5 ${badge[h.status]}`}>
+                    {h.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-{/* Agent stats */}
-<section className="border border-zinc-800 rounded-2xl p-4 bg-zinc-900/40">
-<h2 className="text-lg font-medium mb-3">Agent Stats (últimos 7 dias)</h2>
-<div className="overflow-auto">
-<table className="w-full text-sm">
-<thead className="text-zinc-400">
-<tr>
-<th className="text-left p-2">date</th>
-<th className="text-left p-2">messages</th>
-<th className="text-left p-2">skills</th>
-<th className="text-left p-2">errors</th>
-<th className="text-left p-2">tokens</th>
-<th className="text-left p-2">uptime(h)</th>
-</tr>
-</thead>
-<tbody>
-{agentStats.map((s) => (
-<tr key={s.id} className="border-t border-zinc-800">
-<td className="p-2">{s.date}</td>
-<td className="p-2">{s.messages_sent}</td>
-<td className="p-2">{s.skills_used}</td>
-<td className="p-2">{s.errors}</td>
-<td className="p-2">{s.model_tokens_used}</td>
-<td className="p-2">{s.uptime_hours}</td>
-</tr>
-))}
-</tbody>
-</table>
-</div>
-</section>
-</div>
-</main>
-);
+        {/* Agent stats */}
+        <section className="glass rounded-2xl p-5 shadow-xl shadow-black/50">
+          <h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium mb-4">Telemetria de Agentes (7 dias)</h2>
+          <div className="overflow-auto custom-scrollbar">
+            <table className="w-full text-sm text-left">
+              <thead className="text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-black/20">
+                <tr>
+                  <th className="font-medium p-3 rounded-tl-lg">Data</th>
+                  <th className="font-medium p-3">Interações</th>
+                  <th className="font-medium p-3">Habilidades Invocadas</th>
+                  <th className="font-medium p-3">Erros Cognitivos</th>
+                  <th className="font-medium p-3">Custo Computacional (Tokens)</th>
+                  <th className="font-medium p-3 rounded-tr-lg">Uptime Ativo (h)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {agentStats.map((s) => (
+                  <tr key={s.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="p-3 text-zinc-300 font-mono">{s.date}</td>
+                    <td className="p-3 text-blue-400 font-medium">{s.messages_sent.toLocaleString()}</td>
+                    <td className="p-3 text-zinc-300">{s.skills_used.toLocaleString()}</td>
+                    <td className="p-3">
+                      <span className={s.errors > 0 ? "text-red-400 bg-red-500/10 px-2 py-1 rounded" : "text-zinc-500"}>{s.errors}</span>
+                    </td>
+                    <td className="p-3 text-zinc-400">{s.model_tokens_used.toLocaleString()}</td>
+                    <td className="p-3 text-zinc-300">{s.uptime_hours.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
 }
 
 function Card({ title, value }: { title: string; value: string }) {
-return (
-<div className="border border-zinc-800 rounded-2xl p-4 bg-zinc-900/40">
-<p className="text-xs uppercase tracking-wide text-zinc-400">{title}</p>
-<p className="text-2xl font-semibold mt-1">{value}</p>
-</div>
-);
+  return (
+    <div className="glass rounded-2xl p-5 shadow-xl shadow-black/50 relative overflow-hidden group">
+      <div className="absolute top-0 left-0 w-[2px] h-full bg-blue-500/50 group-hover:bg-blue-400 transition-colors"></div>
+      <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{title}</p>
+      <p className="text-3xl font-light tracking-tight mt-2 text-zinc-100">{value}</p>
+    </div>
+  );
 }

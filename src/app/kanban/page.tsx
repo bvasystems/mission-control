@@ -136,72 +136,84 @@ await Promise.all([
 ...toList.map((t, idx) => persistMove(t.id, toCol, idx)),
 ]);
 }
-return (
-<main className="min-h-screen bg-zinc-950 text-zinc-100 p-6">
-<div className="max-w-[1500px] mx-auto">
-<div className="flex items-end justify-between mb-5">
-<div>
-<p className="text-xs uppercase tracking-wider text-zinc-400">Mission Control</p>
-<h1 className="text-3xl font-semibold">Kanban Operacional</h1>
-</div>
-<button
-onClick={refresh}
-className="border border-zinc-700 rounded-xl px-4 py-2 text-sm hover:bg-zinc-900"
->
-Atualizar
-</button>
-</div>
+  return (
+    <main className="min-h-screen text-zinc-100 p-6 md:p-10 relative">
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/10 blur-[120px] rounded-full pointer-events-none"></div>
 
-<DndContext sensors={sensors} onDragEnd={onDragEnd}>
-<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-{columns.map((col) => (
-<ColumnView key={col.key} title={col.label} tasks={grouped[col.key]} />
-))}
-</div>
-</DndContext>
-</div>
-</main>
-);
+      <div className="max-w-[1600px] mx-auto relative z-10">
+        <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-blue-400 font-semibold mb-2">Fluxo de Trabalho</p>
+            <h1 className="text-3xl font-medium tracking-tight">Kanban Operacional</h1>
+          </div>
+          <button
+            onClick={refresh}
+            className="border border-blue-500/30 bg-blue-500/10 text-blue-400 rounded-lg px-4 py-2 text-xs uppercase tracking-wider font-medium hover:bg-blue-500/20 transition-colors"
+          >
+            Sincronizar
+          </button>
+        </header>
+
+        <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+            {columns.map((col) => (
+              <ColumnView key={col.key} title={col.label} tasks={grouped[col.key]} />
+            ))}
+          </div>
+        </DndContext>
+      </div>
+    </main>
+  );
 }
 
 function ColumnView({ title, tasks }: { title: string; tasks: Task[] }) {
-return (
-<section className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-3 min-h-[420px]">
-<div className="flex items-center justify-between mb-3">
-<h2 className="font-medium">{title}</h2>
-<span className="text-xs text-zinc-400">{tasks.length}</span>
-</div>
-<SortableContext items={tasks.map((t) => t.id)} strategy={rectSortingStrategy}>
-<div className="space-y-2">
-{tasks.map((t) => (
-<TaskCard key={t.id} task={t} />
-))}
-</div>
-</SortableContext>
-</section>
-);
+  return (
+    <section className="glass rounded-2xl p-4 flex flex-col h-[calc(100vh-200px)] border-t-[3px] border-t-white/10">
+      <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
+        <h2 className="font-medium text-sm text-zinc-300 tracking-wide">{title}</h2>
+        <span className="text-[10px] bg-white/5 border border-white/10 text-zinc-400 px-2 py-0.5 rounded-full font-mono">
+          {tasks.length}
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+        <SortableContext items={tasks.map((t) => t.id)} strategy={rectSortingStrategy}>
+          <div className="space-y-3 min-h-[100px]">
+            {tasks.map((t) => (
+              <TaskCard key={t.id} task={t} />
+            ))}
+          </div>
+        </SortableContext>
+      </div>
+    </section>
+  );
 }
 
 function TaskCard({ task }: { task: Task }) {
-const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id });
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id });
 
-const style = {
-transform: CSS.Transform.toString(transform),
-transition,
-};
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
-return (
-<article
-ref={setNodeRef}
-style={style}
-{...attributes}
-{...listeners}
-className="cursor-grab active:cursor-grabbing rounded-xl border border-zinc-800 bg-zinc-950/70 p-3"
->
-<p className="font-medium text-sm">{task.title}</p>
-<p className="text-xs text-zinc-400 mt-1">
-prioridade: {task.priority} • owner: {task.assigned_to || "-"}
-</p>
-</article>
-);
+  return (
+    <article
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="cursor-grab active:cursor-grabbing rounded-xl border border-white/5 bg-black/60 hover:bg-black/80 p-4 transition-colors shadow-lg shadow-black/20 group hover:border-blue-500/30 relative overflow-hidden"
+    >
+      <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/0 group-hover:bg-blue-500/50 transition-colors"></div>
+      <p className="font-medium text-sm text-zinc-200 leading-snug">{task.title}</p>
+      <div className="flex items-center justify-between mt-3">
+        <p className="text-[10px] text-zinc-500 uppercase tracking-wider">
+          <span className="font-mono text-blue-400/80">{task.assigned_to || "unassigned"}</span>
+        </p>
+        <span className={`text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded ${task.priority === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : task.priority === 'high' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-white/5 text-zinc-400'}`}>
+          {task.priority}
+        </span>
+      </div>
+    </article>
+  );
 }

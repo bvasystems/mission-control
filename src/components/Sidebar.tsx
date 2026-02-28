@@ -3,53 +3,64 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AuthButton from "@/components/AuthButton";
+import { LayoutDashboard, KanbanSquare, TriangleAlert, Clock, Bot } from "lucide-react";
 
 const items = [
-{ href: "/", label: "Dashboard" },
-{ href: "/kanban", label: "Kanban" },
-{ href: "/incidents", label: "Incidents" },
-{ href: "/crons", label: "Crons" },
-{ href: "/agents", label: "Agents" },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/kanban", label: "Kanban", icon: KanbanSquare },
+  { href: "/incidents", label: "Incidents", icon: TriangleAlert },
+  { href: "/crons", label: "Crons", icon: Clock },
+  { href: "/agents", label: "Agents", icon: Bot },
 ];
 
 export default function Sidebar() {
-const pathname = usePathname();
+  const pathname = usePathname();
 
-return (
-<aside className="w-64 border-r border-zinc-800 bg-zinc-950/80 hidden md:flex md:flex-col">
-{/* Top */}
-<div className="p-4">
-<p className="text-xs uppercase tracking-wider text-zinc-500 mb-2">Mission Control</p>
-<h1 className="text-lg font-semibold">BVA Systems</h1>
-</div>
+  return (
+    <aside className="w-64 border-r border-white/5 bg-black/40 backdrop-blur-xl hidden md:flex md:flex-col relative z-20">
+      <div className="absolute inset-y-0 right-0 w-[1px] bg-gradient-to-b from-transparent via-white/10 to-transparent"></div>
 
-{/* Nav */}
-<nav className="px-4 pb-4 space-y-1">
-{items.map((item) => {
-const active = pathname === item.href;
-return (
-<Link
-key={item.href}
-href={item.href}
-className={`block rounded-xl px-3 py-2 text-sm transition ${
-active
-? "bg-blue-600/20 text-blue-300 border border-blue-500/30"
-: "text-zinc-300 hover:bg-zinc-900 border border-transparent"
-}`}
->
-{item.label}
-</Link>
-);
-})}
-</nav>
+      {/* Top */}
+      <div className="p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-blue-400 font-semibold">Mission Control</p>
+        </div>
+        <h1 className="text-xl font-medium tracking-tight text-zinc-100">BVA Systems</h1>
+      </div>
 
-<div className="flex-1" />
+      {/* Nav */}
+      <nav className="px-4 pb-4 space-y-1">
+        {items.map((item) => {
+          const active = pathname === item.href;
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-300 relative overflow-hidden ${
+                active
+                  ? "text-blue-300 bg-blue-500/10"
+                  : "text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04]"
+              }`}
+            >
+              {active && (
+                <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
+              )}
+              <Icon size={18} className={active ? "text-blue-400" : "opacity-70"} />
+              <span className="font-medium">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
-{/* Bottom */}
-<div className="p-4 border-t border-zinc-800">
-<p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-2">Sessão</p>
-<AuthButton />
-</div>
-</aside>
-);
+      <div className="flex-1" />
+
+      {/* Bottom */}
+      <div className="p-4 border-t border-white/5 bg-black/20">
+        <p className="text-[10px] uppercase tracking-wider text-zinc-600 mb-3 px-2">Operator Session</p>
+        <AuthButton />
+      </div>
+    </aside>
+  );
 }

@@ -88,138 +88,145 @@ critical: rows.filter((r) => r.severity === "critical").length,
 investigating: rows.filter((r) => r.status === "investigating").length,
 };
 }, [rows]);
-return (
-<main className="p-6 md:p-8">
-<div className="flex items-end justify-between mb-5">
-<div>
-<p className="text-xs uppercase tracking-wider text-zinc-400">Mission Control</p>
-<h1 className="text-3xl font-semibold">Incidents</h1>
-<p className="text-zinc-400 text-sm">Monitoramento de incidentes e mitigação.</p>
-</div>
-<button
-onClick={refresh}
-className="border border-zinc-700 rounded-xl px-4 py-2 text-sm hover:bg-zinc-900"
->
-{loading ? "Atualizando..." : "Atualizar"}
-</button>
-</div>
+  return (
+    <main className="min-h-screen text-zinc-100 p-6 md:p-10 relative">
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-red-500/5 blur-[120px] rounded-full pointer-events-none"></div>
 
-<section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-<Card title="Total" value={String(counters.total)} />
-<Card title="Open" value={String(counters.open)} />
-<Card title="Critical" value={String(counters.critical)} />
-<Card title="Investigating" value={String(counters.investigating)} />
-</section>
+      <div className="max-w-7xl mx-auto space-y-8 relative z-10">
+        <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-red-400 font-semibold mb-2">Monitoramento de Risco</p>
+            <h1 className="text-3xl font-medium tracking-tight">Registro de Incidentes</h1>
+            <p className="text-zinc-500 text-sm mt-1">Acompanhamento e mitigação de falhas e anomalias críticas.</p>
+          </div>
+          <button
+            onClick={refresh}
+            className="border border-red-500/30 bg-red-500/10 text-red-400 rounded-lg px-4 py-2 text-xs uppercase tracking-wider font-medium hover:bg-red-500/20 transition-colors"
+          >
+            {loading ? "Verificando..." : "Sincronizar"}
+          </button>
+        </header>
 
-<section className="border border-zinc-800 rounded-2xl p-4 bg-zinc-900/40 mb-5">
-<h2 className="text-lg font-medium mb-3">Novo incidente</h2>
-<div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-<input
-className="md:col-span-6 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2"
-placeholder="Ex: Workflow n8n falhando 3x seguidas"
-value={title}
-onChange={(e) => setTitle(e.target.value)}
-/>
-<select
-className="md:col-span-2 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2"
-value={severity}
-onChange={(e) => setSeverity(e.target.value as Severity)}
->
-<option value="low">low</option>
-<option value="medium">medium</option>
-<option value="high">high</option>
-<option value="critical">critical</option>
-</select>
-<input
-className="md:col-span-2 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2"
-placeholder="owner"
-value={owner}
-onChange={(e) => setOwner(e.target.value)}
-/>
-<input
-className="md:col-span-1 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2"
-placeholder="source"
-value={source}
-onChange={(e) => setSource(e.target.value)}
-/>
-<button
-onClick={createIncident}
-className="md:col-span-1 rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2"
->
-Criar
-</button>
-</div>
-</section>
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card title="Total" value={String(counters.total)} />
+          <Card title="Open" value={String(counters.open)} />
+          <Card title="Critical" value={String(counters.critical)} isCritical />
+          <Card title="Investigating" value={String(counters.investigating)} />
+        </section>
 
-<div className="border border-zinc-800 rounded-2xl overflow-hidden">
-<table className="w-full text-sm">
-<thead className="bg-zinc-900/60 text-zinc-400">
-<tr>
-<th className="text-left p-3">Incidente</th>
-<th className="text-left p-3">Severity</th>
-<th className="text-left p-3">Status</th>
-<th className="text-left p-3">Owner</th>
-<th className="text-left p-3">Source</th>
-<th className="text-left p-3">Atualização</th>
-<th className="text-left p-3">Ações</th>
-</tr>
-</thead>
-<tbody>
-{rows.map((r) => (
-<tr key={r.id} className="border-t border-zinc-800">
-<td className="p-3">
-<p className="font-medium">{r.title}</p>
-<p className="text-xs text-zinc-500">{r.id}</p>
-</td>
-<td className="p-3">
-<span className={`text-xs border rounded-full px-2 py-1 ${sevBadge[r.severity]}`}>
-{r.severity}
-</span>
-</td>
-<td className="p-3">
-<span className={`text-xs border rounded-full px-2 py-1 ${stBadge[r.status]}`}>
-{r.status}
-</span>
-</td>
-<td className="p-3 text-zinc-300">{r.owner || "-"}</td>
-<td className="p-3 text-zinc-300">{r.source || "-"}</td>
-<td className="p-3 text-zinc-300">
-{new Date(r.updated_at).toLocaleString()}
-</td>
-<td className="p-3">
-<div className="flex flex-wrap gap-1">
-{(["open", "investigating", "mitigated", "closed"] as IncidentStatus[]).map((s) => (
-<button
-key={s}
-onClick={() => updateStatus(r.id, s)}
-className="text-xs border border-zinc-700 rounded-lg px-2 py-1 hover:bg-zinc-900"
->
-{s}
-</button>
-))}
-</div>
-</td>
-</tr>
-))}
-{rows.length === 0 && (
-<tr>
-<td colSpan={7} className="p-6 text-center text-zinc-500">
-Sem incidentes ainda.
-</td>
-</tr>
-)}
-</tbody>
-</table>
-</div>
-</main>
-);
+        <section className="glass rounded-2xl p-4 md:p-6 shadow-2xl shadow-black/50 border-t-[3px] border-t-red-500/50">
+          <h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium mb-4">Declarar Novo Incidente</h2>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+            <input
+              className="md:col-span-4 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all placeholder:text-zinc-600"
+              placeholder="Ex: API Gateway instável"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <select
+              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 transition-all text-zinc-300"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value as Severity)}
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+            <input
+              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 transition-all placeholder:text-zinc-600"
+              placeholder="Lead Owner"
+              value={owner}
+              onChange={(e) => setOwner(e.target.value)}
+            />
+            <input
+              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 transition-all placeholder:text-zinc-600"
+              placeholder="System Source"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+            />
+            <button
+              onClick={createIncident}
+              className="md:col-span-2 rounded-xl bg-red-600/80 text-white font-medium hover:bg-red-500 px-4 py-2.5 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.2)] shadow-red-500/10 border border-red-500/50"
+            >
+              Reportar
+            </button>
+          </div>
+        </section>
+
+        <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-black/40 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/5">
+                <tr>
+                  <th className="font-medium p-4">Incidente / ID</th>
+                  <th className="font-medium p-4">Severity</th>
+                  <th className="font-medium p-4">Status</th>
+                  <th className="font-medium p-4">Lead</th>
+                  <th className="font-medium p-4">Source</th>
+                  <th className="font-medium p-4">Atualização</th>
+                  <th className="font-medium p-4">Ações Mitigadoras</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {rows.map((r) => (
+                  <tr key={r.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="p-4">
+                      <p className="font-medium text-zinc-200">{r.title}</p>
+                      <p className="text-[10px] text-zinc-600 font-mono mt-1">{r.id.split('-')[0]}</p>
+                    </td>
+                    <td className="p-4">
+                      <span className={`text-[9px] uppercase tracking-wider font-mono border rounded px-1.5 py-0.5 ${sevBadge[r.severity]}`}>
+                        {r.severity}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`text-[9px] uppercase tracking-wider font-mono border rounded px-1.5 py-0.5 whitespace-nowrap ${stBadge[r.status]}`}>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-zinc-400 font-medium">{r.owner || "-"}</td>
+                    <td className="p-4 text-zinc-400 font-mono text-[11px]">{r.source || "-"}</td>
+                    <td className="p-4 text-zinc-500 text-[11px] uppercase tracking-wide">
+                      {new Date(r.updated_at).toLocaleString()}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {(["open", "investigating", "mitigated", "closed"] as IncidentStatus[]).map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => updateStatus(r.id, s)}
+                            className="text-[9px] font-mono tracking-widest uppercase border border-white/10 rounded-md px-2 py-1 hover:bg-white/10 hover:text-white text-zinc-500 transition-colors"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-zinc-500 italic">
+                      Zero anomalias detectadas no quadrante atual.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 }
 
-function Card({ title, value }: { title: string; value: string }) {
-return (
-<div className="border border-zinc-800 rounded-2xl p-4 bg-zinc-900/40">
-<p className="text-xs uppercase tracking-wide text-zinc-400">{title}</p>
-<p className="text-2xl font-semibold mt-1">{value}</p>
-</div>
-);
+function Card({ title, value, isCritical }: { title: string; value: string; isCritical?: boolean }) {
+  return (
+    <div className={`glass rounded-2xl p-5 shadow-xl shadow-black/50 relative overflow-hidden group border ${isCritical ? 'border-red-500/20' : 'border-white/5'}`}>
+      <div className={`absolute top-0 left-0 w-[2px] h-full transition-colors ${isCritical ? 'bg-red-500/50 group-hover:bg-red-400' : 'bg-blue-500/50 group-hover:bg-blue-400'}`}></div>
+      <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{title}</p>
+      <p className={`text-3xl font-light tracking-tight mt-2 ${isCritical && Number(value) > 0 ? 'text-red-400' : 'text-zinc-100'}`}>{value}</p>
+    </div>
+  );
 }
