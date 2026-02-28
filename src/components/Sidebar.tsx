@@ -17,7 +17,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r border-white/5 bg-black/40 backdrop-blur-xl hidden md:flex md:flex-col relative z-20">
+    <aside className="w-64 border-r border-white/10 bg-zinc-950/60 backdrop-blur-xl hidden md:flex md:flex-col relative z-20">
       <div className="absolute inset-y-0 right-0 w-[1px] bg-gradient-to-b from-transparent via-white/10 to-transparent"></div>
 
       {/* Top */}
@@ -26,7 +26,7 @@ export default function Sidebar() {
           <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-blue-400 font-semibold">Mission Control</p>
         </div>
-        <h1 className="text-xl font-medium tracking-tight text-zinc-100">BVA Systems</h1>
+        <h1 className="text-xl font-medium tracking-tight text-white">BVA Systems</h1>
       </div>
 
       {/* Nav */}
@@ -40,14 +40,14 @@ export default function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-300 relative overflow-hidden ${
                 active
-                  ? "text-blue-300 bg-blue-500/10"
-                  : "text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04]"
+                  ? "text-blue-300 bg-blue-500/10 shadow-inner"
+                  : "text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.06]"
               }`}
             >
               {active && (
                 <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div>
               )}
-              <Icon size={18} className={active ? "text-blue-400" : "opacity-70"} />
+              <Icon size={18} className={active ? "text-blue-400" : "opacity-80"} />
               <span className="font-medium">{item.label}</span>
             </Link>
           );
@@ -57,8 +57,8 @@ export default function Sidebar() {
       <div className="flex-1" />
 
       {/* Bottom */}
-      <div className="p-4 border-t border-white/5 bg-black/20">
-        <p className="text-[10px] uppercase tracking-wider text-zinc-600 mb-3 px-2">Operator Session</p>
+      <div className="p-4 border-t border-white/10 bg-zinc-900/40">
+        <p className="text-[10px] uppercase tracking-wider text-zinc-500 mb-3 px-2 font-medium">Operator Session</p>
         <AuthButton />
       </div>
     </aside>

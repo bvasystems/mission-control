@@ -18,11 +18,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className="dark scroll-smooth">
-      <body className={`${inter.className} bg-black text-zinc-300 antialiased selection:bg-indigo-500/30`}>
+      <body className={`${inter.className} bg-zinc-950 text-zinc-100 antialiased selection:bg-indigo-500/30`}>
         <SessionProviderClient>
           <div className="flex min-h-screen">
             <Sidebar />
-            <div className="flex-1 overflow-x-hidden border-l border-white/[0.05] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/10 via-black to-black">
+            <div className="flex-1 overflow-x-hidden border-l border-white/[0.08] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/15 via-zinc-950 to-zinc-950">
               {children}
             </div>
           </div>

@@ -144,13 +144,13 @@ return () => { clearTimeout(t1); clearInterval(t2); };
           <h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium mb-4">Nova Demanda</h2>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <input
-              className="md:col-span-6 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-zinc-600"
+              className="md:col-span-6 bg-zinc-900/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all placeholder:text-zinc-600"
               placeholder="Ex: Revisar cron watchdog com retry x3"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
             <select
-              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 transition-all text-zinc-300"
+              className="md:col-span-2 bg-zinc-900/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 transition-all text-zinc-300"
               value={priority}
               onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high" | "critical")}
             >
@@ -160,7 +160,7 @@ return () => { clearTimeout(t1); clearInterval(t2); };
               <option value="critical">Critical</option>
             </select>
             <input
-              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-600"
+              className="md:col-span-2 bg-zinc-900/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-600"
               placeholder="Owner"
               value={assignedTo}
               onChange={(e) => setAssignedTo(e.target.value)}
@@ -182,7 +182,7 @@ return () => { clearTimeout(t1); clearInterval(t2); };
             <div className="space-y-3 max-h-[420px] overflow-auto pr-2 custom-scrollbar">
               {taskList.length === 0 && <p className="text-sm text-zinc-500 italic">Sem tarefas ativas.</p>}
               {taskList.map((t) => (
-                <div key={t.id} className="border border-white/5 rounded-xl p-4 bg-black/40 hover:bg-black/60 transition-colors group">
+                <div key={t.id} className="border border-white/10 rounded-xl p-4 bg-zinc-900/60 hover:bg-zinc-900/80 transition-colors group">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-medium text-sm text-zinc-200 truncate">{t.title}</p>
@@ -226,7 +226,7 @@ return () => { clearTimeout(t1); clearInterval(t2); };
                 <p className="text-sm text-zinc-500 italic">Varredura limpa. Sem serviços mapeados.</p>
               )}
               {healthList.map((h) => (
-                <div key={h.id} className="border border-white/5 rounded-xl p-4 bg-black/40 flex items-center justify-between gap-3">
+                <div key={h.id} className="border border-white/10 rounded-xl p-4 bg-zinc-900/60 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-4">
                     <div className={`w-2 h-2 rounded-full shadow-[0_0_8px] ${h.status === 'healthy' ? 'bg-emerald-500 shadow-emerald-500' : h.status === 'down' ? 'bg-red-500 shadow-red-500 animate-pulse' : 'bg-yellow-500 shadow-yellow-500 animate-pulse'}`}></div>
                     <div>
@@ -251,7 +251,7 @@ return () => { clearTimeout(t1); clearInterval(t2); };
           <h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium mb-4">Telemetria de Agentes (7 dias)</h2>
           <div className="overflow-auto custom-scrollbar">
             <table className="w-full text-sm text-left">
-              <thead className="text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/5 bg-black/20">
+              <thead className="text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/10 bg-zinc-900/40">
                 <tr>
                   <th className="font-medium p-3 rounded-tl-lg">Data</th>
                   <th className="font-medium p-3">Interações</th>

@@ -169,7 +169,7 @@ await Promise.all([
 function ColumnView({ title, tasks }: { title: string; tasks: Task[] }) {
   return (
     <section className="glass rounded-2xl p-4 flex flex-col h-[calc(100vh-200px)] border-t-[3px] border-t-white/10">
-      <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
+      <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
         <h2 className="font-medium text-sm text-zinc-300 tracking-wide">{title}</h2>
         <span className="text-[10px] bg-white/5 border border-white/10 text-zinc-400 px-2 py-0.5 rounded-full font-mono">
           {tasks.length}
@@ -202,7 +202,7 @@ function TaskCard({ task }: { task: Task }) {
       style={style}
       {...attributes}
       {...listeners}
-      className="cursor-grab active:cursor-grabbing rounded-xl border border-white/5 bg-black/60 hover:bg-black/80 p-4 transition-colors shadow-lg shadow-black/20 group hover:border-blue-500/30 relative overflow-hidden"
+      className="cursor-grab active:cursor-grabbing rounded-xl border border-white/10 bg-zinc-900/70 hover:bg-zinc-900/90 p-4 transition-colors shadow-lg shadow-black/20 group hover:border-blue-500/30 relative overflow-hidden"
     >
       <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/0 group-hover:bg-blue-500/50 transition-colors"></div>
       <p className="font-medium text-sm text-zinc-200 leading-snug">{task.title}</p>

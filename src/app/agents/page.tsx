@@ -82,7 +82,7 @@ errors: rows.reduce((acc, r) => acc + (r.errors_24h || 0), 0),
         <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border-t-[3px] border-t-purple-500/50">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-sm text-left">
-              <thead className="bg-black/40 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/5">
+              <thead className="bg-zinc-900/60 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/10">
                 <tr>
                   <th className="font-medium p-4">Agente I.A</th>
                   <th className="font-medium p-4">Clearance Level</th>

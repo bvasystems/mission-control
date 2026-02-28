@@ -59,14 +59,14 @@ return () => { clearTimeout(t1); clearInterval(t2); };
         <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border-t-[3px] border-t-emerald-500/50 mt-8">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-sm text-left">
-              <thead className="bg-black/40 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/5">
+              <thead className="bg-zinc-900/60 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/10">
                 <tr>
                   <th className="font-medium p-4">Cron Job</th>
                   <th className="font-medium p-4">Schedule</th>
                   <th className="font-medium p-4">Status</th>
                   <th className="font-medium p-4">Last Run</th>
                   <th className="font-medium p-4">Next Run</th>
-                  <th className="font-medium p-4 border-l border-white/5">Sequência Falhas</th>
+                  <th className="font-medium p-4 border-l border-white/10">Sequência Falhas</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -91,7 +91,7 @@ return () => { clearTimeout(t1); clearInterval(t2); };
                     <td className="p-4 text-zinc-400 font-mono text-[11px]">
                       {r.next_run ? new Date(r.next_run).toLocaleString() : "-"}
                     </td>
-                    <td className="p-4 border-l border-white/5">
+                    <td className="p-4 border-l border-white/10">
                       {r.consecutive_errors > 0 ? (
                         <span className="text-red-400 font-mono bg-red-500/10 px-2.5 py-1 rounded border border-red-500/20 font-bold">{r.consecutive_errors}</span>
                       ) : (

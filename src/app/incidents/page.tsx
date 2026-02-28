@@ -118,13 +118,13 @@ investigating: rows.filter((r) => r.status === "investigating").length,
           <h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium mb-4">Declarar Novo Incidente</h2>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <input
-              className="md:col-span-4 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all placeholder:text-zinc-600"
+              className="md:col-span-4 bg-zinc-900/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/50 transition-all placeholder:text-zinc-600"
               placeholder="Ex: API Gateway instável"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
             <select
-              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 transition-all text-zinc-300"
+              className="md:col-span-2 bg-zinc-900/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 transition-all text-zinc-300"
               value={severity}
               onChange={(e) => setSeverity(e.target.value as Severity)}
             >
@@ -134,13 +134,13 @@ investigating: rows.filter((r) => r.status === "investigating").length,
               <option value="critical">Critical</option>
             </select>
             <input
-              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 transition-all placeholder:text-zinc-600"
+              className="md:col-span-2 bg-zinc-900/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 transition-all placeholder:text-zinc-600"
               placeholder="Lead Owner"
               value={owner}
               onChange={(e) => setOwner(e.target.value)}
             />
             <input
-              className="md:col-span-2 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 transition-all placeholder:text-zinc-600"
+              className="md:col-span-2 bg-zinc-900/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500/50 transition-all placeholder:text-zinc-600"
               placeholder="System Source"
               value={source}
               onChange={(e) => setSource(e.target.value)}
@@ -157,7 +157,7 @@ investigating: rows.filter((r) => r.status === "investigating").length,
         <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-sm text-left">
-              <thead className="bg-black/40 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/5">
+              <thead className="bg-zinc-900/60 text-[10px] uppercase tracking-wider text-zinc-500 border-b border-white/10">
                 <tr>
                   <th className="font-medium p-4">Incidente / ID</th>
                   <th className="font-medium p-4">Severity</th>
@@ -223,7 +223,7 @@ investigating: rows.filter((r) => r.status === "investigating").length,
 
 function Card({ title, value, isCritical }: { title: string; value: string; isCritical?: boolean }) {
   return (
-    <div className={`glass rounded-2xl p-5 shadow-xl shadow-black/50 relative overflow-hidden group border ${isCritical ? 'border-red-500/20' : 'border-white/5'}`}>
+    <div className={`glass rounded-2xl p-5 shadow-xl shadow-black/50 relative overflow-hidden group border ${isCritical ? 'border-red-500/20' : 'border-white/10'}`}>
       <div className={`absolute top-0 left-0 w-[2px] h-full transition-colors ${isCritical ? 'bg-red-500/50 group-hover:bg-red-400' : 'bg-blue-500/50 group-hover:bg-blue-400'}`}></div>
       <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{title}</p>
       <p className={`text-3xl font-light tracking-tight mt-2 ${isCritical && Number(value) > 0 ? 'text-red-400' : 'text-zinc-100'}`}>{value}</p>
