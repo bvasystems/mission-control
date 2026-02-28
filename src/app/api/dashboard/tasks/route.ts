@@ -40,3 +40,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function GET() {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, title, status, priority, stage, assigned_to, due_date, created_at 
+       FROM tasks 
+       ORDER BY created_at DESC 
+       LIMIT 100`
+    );
+
+    return NextResponse.json({
+      ok: true,
+      data: rows
+    });
+  } catch (error: unknown) {
+    console.error('Error fetching tasks:', error);
+    const message = error instanceof Error ? error.message : "unknown_error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
