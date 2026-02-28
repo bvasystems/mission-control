@@ -58,9 +58,9 @@ r.agent_id,
 
 await client.query("commit");
 return NextResponse.json({ ok: true, count: parsed.data.rows.length });
-} catch (e: any) {
+} catch (e: unknown) {
 await client.query("rollback");
-return NextResponse.json({ error: e.message }, { status: 500 });
+return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
 } finally {
 client.release();
 }

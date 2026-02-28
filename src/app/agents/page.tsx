@@ -78,11 +78,11 @@ setRows(combined);
 setLoading(false);
 }
 
-useEffect(() => {
-refresh();
-const t = setInterval(refresh, 30000);
-return () => clearInterval(t);
-}, []);
+  useEffect(() => {
+    const t1 = setTimeout(refresh, 0);
+    const t2 = setInterval(refresh, 30000);
+    return () => { clearTimeout(t1); clearInterval(t2); };
+  }, []);
 
 const totals = useMemo(() => {
 return {
