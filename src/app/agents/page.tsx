@@ -61,11 +61,21 @@ const statuses: AgentStatus[] = statusJson.data ?? [];
 const stats: AgentStat[] = statsJson.agent_stats ?? [];
 
 const latestByAgent = new Map<string, AgentStat>();
+
+const norm = (v?: string) => {
+const s = (v || "").toLowerCase();
+if (["jota", "faisca", "faísca", "main"].includes(s)) return "main";
+if (s === "caio") return "caio";
+if (["leticia", "letícia"].includes(s)) return "leticia";
+return s;
+};
+
 for (const s of stats) {
-if (!s.agent_id) continue;
-const prev = latestByAgent.get(s.agent_id);
+const key = norm(s.agent_id);
+if (!key) continue;
+const prev = latestByAgent.get(key);
 if (!prev || new Date(s.date) > new Date(prev.date)) {
-latestByAgent.set(s.agent_id, s);
+latestByAgent.set(key, s);
 }
 }
 
