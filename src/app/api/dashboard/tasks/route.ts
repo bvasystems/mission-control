@@ -11,12 +11,12 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { agent_id, payload, stage } = body;
     
-    const inferredTitle =
+    const safeTitle =
       String(body?.title ?? "").trim() ||
       String(body?.message ?? "").trim() ||
-      `[${body?.agent_id ?? "agent"}] tarefa sem título`;
+      `Tarefa de ${body?.agent_id ?? "agente"}`;
 
-    if (!inferredTitle) {
+    if (!safeTitle.trim()) {
       return NextResponse.json({ error: 'title is required' }, { status: 400 });
     }
 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       `INSERT INTO tasks (title, assigned_to, status, stage, command_id, payload_json, created_at, updated_at)
        VALUES ($1, $2, 'queued', $3, $4, $5, NOW(), NOW())
        RETURNING id`,
-      [inferredTitle, agent_id, stage || 'todo', command_id, payload ? JSON.stringify(payload) : null]
+      [safeTitle, agent_id, stage || 'todo', command_id, payload ? JSON.stringify(payload) : null]
     );
 
     const task_id = rows[0].id;
