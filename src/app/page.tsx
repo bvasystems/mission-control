@@ -264,14 +264,26 @@ return () => { clearTimeout(t1); clearInterval(t2); };
               <tbody className="divide-y divide-white/5">
                 {agentStats.map((s) => (
                   <tr key={s.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="p-3 text-zinc-300 font-mono">{s.date}</td>
-                    <td className="p-3 text-blue-400 font-medium">{s.messages_sent.toLocaleString()}</td>
-                    <td className="p-3 text-zinc-300">{s.skills_used.toLocaleString()}</td>
-                    <td className="p-3">
-                      <span className={s.errors > 0 ? "text-red-400 bg-red-500/10 px-2 py-1 rounded" : "text-zinc-500"}>{s.errors}</span>
+                    <td className="p-3 text-zinc-300 font-mono">
+                      {new Date(s.date).toLocaleDateString()}
                     </td>
-                    <td className="p-3 text-zinc-400">{s.model_tokens_used.toLocaleString()}</td>
-                    <td className="p-3 text-zinc-300">{s.uptime_hours.toFixed(1)}</td>
+                    <td className="p-3 text-blue-400 font-medium">
+                      {(Number(s.messages_sent) || 0).toLocaleString()}
+                    </td>
+                    <td className="p-3 text-zinc-300">
+                      {(Number(s.skills_used) || 0).toLocaleString()}
+                    </td>
+                    <td className="p-3">
+                      <span className={(Number(s.errors) || 0) > 0 ? "text-red-400 bg-red-500/10 px-2 py-1 rounded border border-red-500/20 font-bold" : "text-zinc-500"}>
+                        {Number(s.errors) || 0}
+                      </span>
+                    </td>
+                    <td className="p-3 text-zinc-400">
+                      {(Number(s.model_tokens_used) || 0).toLocaleString()}
+                    </td>
+                    <td className="p-3 text-zinc-300">
+                      {(Number(s.uptime_hours) || 0).toFixed(1)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

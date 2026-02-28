@@ -99,9 +99,9 @@ return {
 total: rows.length,
 degraded: rows.filter((r) => r.status === "degraded").length,
 down: rows.filter((r) => r.status === "down").length,
-errors: rows.reduce((acc, r) => acc + (r.stat?.errors ?? 0), 0),
-msgs: rows.reduce((acc, r) => acc + (r.stat?.messages_sent ?? 0), 0),
-tokens: rows.reduce((acc, r) => acc + (r.stat?.model_tokens_used ?? 0), 0),
+errors: rows.reduce((acc, r) => acc + Number(r.stat?.errors ?? 0), 0),
+msgs: rows.reduce((acc, r) => acc + Number(r.stat?.messages_sent ?? 0), 0),
+tokens: rows.reduce((acc, r) => acc + Number(r.stat?.model_tokens_used ?? 0), 0),
 };
 }, [rows]);
 
