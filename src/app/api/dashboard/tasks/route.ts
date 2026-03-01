@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { guardApiRoute } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,10 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const guard = guardApiRoute(request);
+  if (guard) return guard;
+
   try {
     const { rows } = await db.query(
       `SELECT id, title, status, priority, stage, assigned_to, due_date, project_key, created_at

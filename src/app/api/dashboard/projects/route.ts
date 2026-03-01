@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { guardApiRoute } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,10 @@ function buildMetricsFromRows(rows: { column: string; cnt: string }[]) {
 
 // ── GET /api/dashboard/projects ─────────────────────────────────────────────
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const guard = guardApiRoute(req);
+  if (guard) return guard;
+
   try {
     // 1) Fetch all projects with latest incidents_open and reliability from project_metrics
     const projectsRes = await db.query(`
