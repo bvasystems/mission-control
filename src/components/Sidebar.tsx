@@ -17,7 +17,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 border-r border-white/10 bg-zinc-950/60 backdrop-blur-xl hidden md:flex md:flex-col relative z-20">
+    <aside className="w-64 h-full border-r border-white/10 bg-zinc-950/60 backdrop-blur-xl hidden md:flex md:flex-col relative z-20 shrink-0">
       <div className="absolute inset-y-0 right-0 w-[1px] bg-gradient-to-b from-transparent via-white/10 to-transparent"></div>
 
       {/* Top */}
