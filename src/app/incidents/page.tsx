@@ -2,8 +2,29 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 type Severity = "low" | "medium" | "high" | "critical";
 type IncidentStatus = "open" | "investigating" | "mitigated" | "closed";
+
+type IncidentDetails = {
+  agent_id?: string;
+  dominant_cause?: string;
+  cause_breakdown?: Record<string, number>;
+  sample_size?: number;
+  window_hours?: number;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  related_dem_ids?: string[];
+  last_messages?: string[];
+  count?: number;
+  recommended_action?: string;
+  recommended_checklist?: string[];
+  definitive_action?: string;
+  rollback?: string;
+  eta_min?: number;
+  confidence?: number;
+};
 
 type Incident = {
   id: string;
@@ -18,20 +39,6 @@ type Incident = {
   details: IncidentDetails | null;
   created_at: string;
   updated_at: string;
-};
-
-type IncidentDetails = {
-  agent_id?: string;
-  dominant_cause?: string;
-  cause_breakdown?: Record<string, number>;
-  sample_size?: number;
-  window_hours?: number;
-  first_seen_at?: string;
-  last_seen_at?: string;
-  related_dem_ids?: string[];
-  last_messages?: string[];
-  count?: number;
-  recommended_action?: string;
 };
 
 type AgentEvent = {
@@ -58,6 +65,8 @@ type IncidentDetail = Incident & {
   };
 };
 
+// ── Badge maps ────────────────────────────────────────────────────────────────
+
 const sevBadge: Record<Severity, string> = {
   low: "bg-zinc-500/20 text-zinc-300 border-zinc-500/40",
   medium: "bg-blue-500/20 text-blue-300 border-blue-500/40",
@@ -72,17 +81,17 @@ const stBadge: Record<IncidentStatus, string> = {
   closed: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
 };
 
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function IncidentsPage() {
   const [rows, setRows] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Form state
   const [title, setTitle] = useState("");
   const [severity, setSeverity] = useState<Severity>("medium");
   const [owner, setOwner] = useState("leticia");
   const [source, setSource] = useState("n8n");
 
-  // Modal state
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<IncidentDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -100,7 +109,7 @@ export default function IncidentsPage() {
 
   useEffect(() => {
     const t1 = setTimeout(refresh, 0);
-    const t2 = setInterval(refresh, 30000);
+    const t2 = setInterval(refresh, 30_000);
     return () => { clearTimeout(t1); clearInterval(t2); };
   }, [refresh]);
 
@@ -121,6 +130,18 @@ export default function IncidentsPage() {
     setSelectedId(null);
     setDetail(null);
   }, []);
+
+  const handleQuickAction = useCallback(async (status: IncidentStatus) => {
+    if (!selectedId) return;
+    await fetch(`/api/dashboard/incidents/${selectedId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    // Update local state optimistically
+    setDetail((prev) => prev ? { ...prev, status } : prev);
+    setRows((prev) => prev.map((r) => r.id === selectedId ? { ...r, status } : r));
+  }, [selectedId]);
 
   async function createIncident() {
     if (!title.trim()) return;
@@ -150,7 +171,7 @@ export default function IncidentsPage() {
   }), [rows]);
 
   return (
-    <main className="min-h-screen text-zinc-100 p-6 md:p-10 relative">
+    <main className="min-h-full text-zinc-100 p-6 md:p-10 relative">
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-red-500/5 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="max-w-7xl mx-auto space-y-8 relative z-10">
@@ -242,6 +263,9 @@ export default function IncidentsPage() {
                       <td className="p-4">
                         <p className="font-medium text-zinc-200">{r.title}</p>
                         <p className="text-[10px] text-zinc-600 font-mono mt-1">{r.id.split("-")[0]}</p>
+                        {r.details?.dominant_cause && (
+                          <p className="text-[10px] text-orange-400/80 font-mono mt-0.5">{r.details.dominant_cause}</p>
+                        )}
                       </td>
                       <td className="p-4">
                         <span className={`text-[9px] uppercase tracking-wider font-mono border rounded px-1.5 py-0.5 ${sevBadge[r.severity]}`}>
@@ -255,12 +279,12 @@ export default function IncidentsPage() {
                       </td>
                       <td className="p-4 text-zinc-400 font-medium">{r.owner || "-"}</td>
                       <td className="p-4 text-zinc-400 font-mono text-[11px]">{r.source || "-"}</td>
-                      <td className="p-4 text-zinc-400 text-[11px]">
+                      <td className="p-4">
                         {count != null && count > 1 ? (
                           <span className="bg-orange-500/20 text-orange-300 border border-orange-500/40 text-[9px] font-mono rounded px-1.5 py-0.5">
                             ×{count}
                           </span>
-                        ) : "—"}
+                        ) : <span className="text-zinc-700">—</span>}
                       </td>
                       <td className="p-4 text-zinc-500 text-[11px] uppercase tracking-wide">
                         {new Date(r.updated_at).toLocaleString()}
@@ -294,19 +318,20 @@ export default function IncidentsPage() {
         </div>
       </div>
 
-      {/* ── Detail Modal ─────────────────────────────────────────────────────── */}
       {selectedId && (
         <IncidentModal
           loading={detailLoading}
           data={detail}
           onClose={closeModal}
+          onQuickAction={handleQuickAction}
         />
       )}
     </main>
   );
 }
 
-/* ───────────── Card ───────────── */
+// ── Card ──────────────────────────────────────────────────────────────────────
+
 function Card({ title, value, isCritical }: { title: string; value: string; isCritical?: boolean }) {
   return (
     <div className={`glass rounded-2xl p-5 shadow-xl shadow-black/50 relative overflow-hidden group border ${isCritical ? "border-red-500/20" : "border-white/10"}`}>
@@ -317,17 +342,19 @@ function Card({ title, value, isCritical }: { title: string; value: string; isCr
   );
 }
 
-/* ───────────── Modal ───────────── */
+// ── Modal ─────────────────────────────────────────────────────────────────────
+
 function IncidentModal({
   loading,
   data,
   onClose,
+  onQuickAction,
 }: {
   loading: boolean;
   data: IncidentDetail | null;
   onClose: () => void;
+  onQuickAction: (status: IncidentStatus) => Promise<void>;
 }) {
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
@@ -335,6 +362,8 @@ function IncidentModal({
   }, [onClose]);
 
   const det = data?.details;
+  const isAlreadyInvestigating = data?.status === "investigating";
+  const isResolved = data?.status === "mitigated" || data?.status === "closed";
 
   return (
     <div
@@ -342,17 +371,17 @@ function IncidentModal({
       onClick={onClose}
     >
       <div
-        className="relative bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar"
+        className="relative bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-y-auto custom-scrollbar"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="sticky top-0 bg-zinc-950 border-b border-zinc-800 flex items-start justify-between p-5 gap-3 z-10">
+        {/* Sticky header */}
+        <div className="sticky top-0 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 flex items-start justify-between p-5 gap-3 z-10">
           {loading ? (
             <div className="h-6 w-48 bg-zinc-800 animate-pulse rounded" />
           ) : (
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-red-400 font-semibold">Diagnóstico</p>
-              <h2 className="text-lg font-semibold text-zinc-100 mt-0.5 leading-snug">{data?.title ?? "—"}</h2>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-widest text-red-400 font-semibold">Diagnóstico de Incidente</p>
+              <h2 className="text-lg font-semibold text-zinc-100 mt-0.5 leading-snug truncate">{data?.title ?? "—"}</h2>
             </div>
           )}
           <button
@@ -366,74 +395,147 @@ function IncidentModal({
         <div className="p-5 space-y-5">
           {loading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-4 bg-zinc-800 animate-pulse rounded w-full" />
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-4 bg-zinc-800 animate-pulse rounded" style={{ width: `${70 + i * 7}%` }} />
               ))}
             </div>
           ) : !data ? (
-            <p className="text-zinc-500 italic text-sm text-center py-6">Falha ao carregar detalhes. Tente novamente.</p>
+            <p className="text-zinc-500 italic text-sm text-center py-8">Falha ao carregar detalhes.</p>
           ) : (
             <>
-              {/* Meta row */}
+              {/* Meta badges */}
               <div className="flex flex-wrap gap-2 text-[10px] font-mono uppercase tracking-widest">
                 <Badge variant={data.severity === "critical" ? "red" : data.severity === "high" ? "yellow" : "blue"}>
                   {data.severity}
                 </Badge>
-                <Badge variant={data.status === "open" ? "red" : data.status === "closed" ? "green" : "yellow"}>
+                <Badge variant={data.status === "open" ? "red" : data.status === "closed" || data.status === "mitigated" ? "green" : "yellow"}>
                   {data.status}
                 </Badge>
                 {data.owner && <Badge variant="neutral">{data.owner}</Badge>}
                 {data.source && <Badge variant="neutral">{data.source}</Badge>}
+                {det?.confidence != null && (
+                  <Badge variant={det.confidence >= 0.8 ? "green" : det.confidence >= 0.5 ? "yellow" : "neutral"}>
+                    {Math.round(det.confidence * 100)}% conf.
+                  </Badge>
+                )}
+              </div>
+
+              {/* Quick actions */}
+              <div className="flex gap-2">
+                {!isAlreadyInvestigating && !isResolved && (
+                  <button
+                    onClick={() => onQuickAction("investigating")}
+                    className="text-xs font-medium border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 rounded-lg px-3 py-1.5 hover:bg-yellow-500/20 transition-colors"
+                  >
+                    ⚡ Marcar investigando
+                  </button>
+                )}
+                {!isResolved && (
+                  <button
+                    onClick={() => onQuickAction("mitigated")}
+                    className="text-xs font-medium border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 rounded-lg px-3 py-1.5 hover:bg-emerald-500/20 transition-colors"
+                  >
+                    ✓ Resolver
+                  </button>
+                )}
               </div>
 
               {/* No structured details fallback */}
-              {!det ? (
+              {!det || Object.keys(det).length === 0 ? (
                 <div className="border border-zinc-800 rounded-xl p-4 text-zinc-500 text-sm italic">
                   Sem detalhes estruturados para este incidente.
                 </div>
               ) : (
                 <>
-                  {/* Dominant cause */}
+                  {/* Dominant cause + breakdown */}
                   {det.dominant_cause && (
                     <Section title="Causa Dominante">
-                      <p className="font-mono text-orange-300 font-semibold">{det.dominant_cause}</p>
-                      {det.cause_breakdown && (
-                        <div className="mt-2 grid grid-cols-2 gap-1">
-                          {Object.entries(det.cause_breakdown).map(([k, v]) => (
-                            <div key={k} className="flex items-center gap-2 text-xs">
-                              <span className="text-zinc-600 font-mono">{k}</span>
-                              <div className="flex-1 h-1 bg-zinc-800 rounded">
-                                <div
-                                  className="h-full bg-orange-500/60 rounded"
-                                  style={{ width: `${Math.min(100, (v / (det.sample_size || 1)) * 100)}%` }}
-                                />
-                              </div>
-                              <span className="text-zinc-400 w-4 text-right">{v}</span>
-                            </div>
-                          ))}
+                      <p className="font-mono text-orange-300 font-semibold text-sm mb-2">{det.dominant_cause}</p>
+                      {det.cause_breakdown && Object.keys(det.cause_breakdown).length > 0 && (
+                        <div className="space-y-1.5">
+                          {Object.entries(det.cause_breakdown)
+                            .sort(([, a], [, b]) => b - a)
+                            .map(([k, v]) => {
+                              const pct = det.sample_size ? Math.round((v / det.sample_size) * 100) : 0;
+                              return (
+                                <div key={k} className="flex items-center gap-2 text-xs">
+                                  <span className="text-zinc-500 font-mono w-36 shrink-0">{k}</span>
+                                  <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-orange-500/70"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-zinc-400 w-8 text-right shrink-0">{v}</span>
+                                </div>
+                              );
+                            })}
                         </div>
                       )}
                     </Section>
                   )}
 
-                  {/* Window + sample */}
-                  {(det.sample_size != null || det.window_hours != null) && (
+                  {/* Stats row */}
+                  {(det.sample_size != null || det.window_hours != null || det.count != null || det.eta_min != null) && (
                     <Section title="Janela de Análise">
-                      <div className="flex gap-6 text-sm">
-                        {det.window_hours != null && (
-                          <StatItem label="Janela" value={`${det.window_hours}h`} />
-                        )}
-                        {det.sample_size != null && (
-                          <StatItem label="Amostra" value={String(det.sample_size)} />
-                        )}
-                        {det.count != null && det.count > 1 && (
-                          <StatItem label="Recorrências" value={`×${det.count}`} highlight />
-                        )}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {det.window_hours != null && <StatItem label="Janela" value={`${det.window_hours}h`} />}
+                        {det.sample_size != null && <StatItem label="Amostra" value={String(det.sample_size)} />}
+                        {det.count != null && det.count > 1 && <StatItem label="Recorrências" value={`×${det.count}`} highlight />}
+                        {det.eta_min != null && <StatItem label="ETA resolução" value={`${det.eta_min} min`} />}
+                      </div>
+                      {(det.first_seen_at || det.last_seen_at) && (
+                        <div className="flex gap-4 mt-2 text-[10px] text-zinc-600 font-mono">
+                          {det.first_seen_at && <span>First: {new Date(det.first_seen_at).toLocaleString()}</span>}
+                          {det.last_seen_at && <span>Last: {new Date(det.last_seen_at).toLocaleString()}</span>}
+                        </div>
+                      )}
+                    </Section>
+                  )}
+
+                  {/* Recommended action */}
+                  {det.recommended_action && (
+                    <Section title="Ação Recomendada">
+                      <div className="flex gap-3 items-start bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
+                        <span className="text-emerald-400 mt-0.5 shrink-0">✦</span>
+                        <p className="text-sm text-emerald-300">{det.recommended_action}</p>
                       </div>
                     </Section>
                   )}
 
-                  {/* Evidences */}
+                  {/* Checklist */}
+                  {det.recommended_checklist && det.recommended_checklist.length > 0 && (
+                    <Section title="Checklist de Mitigação">
+                      <ul className="space-y-1.5">
+                        {det.recommended_checklist.map((item, i) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                            <span className="text-zinc-600 font-mono shrink-0 mt-0.5">{String(i + 1).padStart(2, "0")}.</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </Section>
+                  )}
+
+                  {/* Definitive action */}
+                  {det.definitive_action && (
+                    <Section title="Ação Definitiva">
+                      <p className="text-sm text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                        {det.definitive_action}
+                      </p>
+                    </Section>
+                  )}
+
+                  {/* Rollback */}
+                  {det.rollback && (
+                    <Section title="Plano de Rollback">
+                      <p className="text-sm text-zinc-400 bg-zinc-900/60 border border-zinc-800 rounded-lg p-3 font-mono">
+                        {det.rollback}
+                      </p>
+                    </Section>
+                  )}
+
+                  {/* Evidence: messages */}
                   {det.last_messages && det.last_messages.length > 0 && (
                     <Section title="Evidências — Últimas Mensagens">
                       <ul className="space-y-1.5">
@@ -458,20 +560,10 @@ function IncidentModal({
                       </div>
                     </Section>
                   )}
-
-                  {/* Recommended action */}
-                  {det.recommended_action && (
-                    <Section title="Ação Recomendada">
-                      <div className="flex gap-3 items-start bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-                        <span className="text-emerald-400 text-base mt-0.5">✦</span>
-                        <p className="text-sm text-emerald-300">{det.recommended_action}</p>
-                      </div>
-                    </Section>
-                  )}
                 </>
               )}
 
-              {/* Evidence from DB */}
+              {/* DB Evidence */}
               {data.evidence && (
                 <>
                   {data.evidence.related_tasks.length > 0 && (
@@ -503,8 +595,8 @@ function IncidentModal({
                 </>
               )}
 
-              {/* Timestamps */}
-              <div className="border-t border-zinc-800 pt-4 flex gap-6 text-[10px] text-zinc-600 font-mono uppercase tracking-widest">
+              {/* Timestamps footer */}
+              <div className="border-t border-zinc-800 pt-4 flex gap-6 text-[10px] text-zinc-600 font-mono uppercase tracking-widest flex-wrap">
                 <span>Criado: {new Date(data.created_at).toLocaleString()}</span>
                 <span>Atualizado: {new Date(data.updated_at).toLocaleString()}</span>
               </div>
@@ -516,7 +608,8 @@ function IncidentModal({
   );
 }
 
-/* ═══════════ Small helpers ═══════════ */
+// ── Small helpers ─────────────────────────────────────────────────────────────
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
@@ -528,9 +621,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function StatItem({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col bg-zinc-900/60 border border-zinc-800 rounded-lg p-2.5">
       <span className="text-[10px] text-zinc-600 uppercase tracking-wider">{label}</span>
-      <span className={`font-mono font-semibold ${highlight ? "text-orange-300" : "text-zinc-200"}`}>{value}</span>
+      <span className={`font-mono font-semibold text-sm mt-0.5 ${highlight ? "text-orange-300" : "text-zinc-200"}`}>{value}</span>
     </div>
   );
 }
@@ -545,8 +638,6 @@ const badgeVariants: Record<BadgeVariant, string> = {
 };
 function Badge({ variant, children }: { variant: BadgeVariant; children: React.ReactNode }) {
   return (
-    <span className={`border rounded px-1.5 py-0.5 ${badgeVariants[variant]}`}>
-      {children}
-    </span>
+    <span className={`border rounded px-1.5 py-0.5 ${badgeVariants[variant]}`}>{children}</span>
   );
 }

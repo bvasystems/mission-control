@@ -1,16 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+type RouteCtx = { params: Promise<{ id: string }> };
+
+function parseDetails(raw: unknown): Record<string, unknown> {
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try { return JSON.parse(raw); } catch { return {}; }
+  }
+  if (typeof raw === "object") return raw as Record<string, unknown>;
+  return {};
+}
+
+// ── GET /api/dashboard/incidents/[id] ────────────────────────────────────────
+
+export async function GET(_req: NextRequest, { params }: RouteCtx) {
   const { id } = await params;
 
   try {
-    // 1) Fetch the incident itself
     const incidentRes = await db.query(
       `SELECT id, title, severity, status, owner, source, impact, next_action,
               fingerprint, details, created_at, updated_at, dem_id
@@ -19,38 +29,28 @@ export async function GET(
       [id]
     );
 
-    if (incidentRes.rowCount === 0) {
+    if (!incidentRes.rowCount || incidentRes.rowCount === 0) {
       return NextResponse.json({ ok: false, error: "Incident not found" }, { status: 404 });
     }
 
     const incident = incidentRes.rows[0];
+    incident.details = parseDetails(incident.details);
 
-    // Parse details if it's a string (some drivers return jsonb as string)
-    if (typeof incident.details === "string") {
-      try {
-        incident.details = JSON.parse(incident.details);
-      } catch {
-        incident.details = null;
-      }
-    }
-
-    // 2) Contextual evidence: last agent events for owner/agent
-    const agentId = incident.details?.agent_id ?? incident.owner ?? null;
+    // Evidence: agent events for owner/agent_id
+    const agentId = (incident.details as Record<string, unknown>)?.agent_id ?? incident.owner ?? null;
     let lastEvents: unknown[] = [];
     if (agentId) {
       const evRes = await db.query(
         `SELECT id, source, event_type, dem_id, payload, created_at
          FROM agent_events
-         WHERE dem_id LIKE $1
-            OR payload::text ILIKE $2
+         WHERE payload::text ILIKE $1
          ORDER BY created_at DESC
          LIMIT 5`,
-        [`%${agentId}%`, `%${agentId}%`]
+        [`%${agentId}%`]
       );
       lastEvents = evRes.rows;
     }
 
-    // If dem_id present fetch by dem_id too
     if (incident.dem_id) {
       const demRes = await db.query(
         `SELECT id, source, event_type, dem_id, payload, created_at
@@ -60,14 +60,13 @@ export async function GET(
          LIMIT 5`,
         [incident.dem_id]
       );
-      // Merge without duplication
       const existingIds = new Set(lastEvents.map((e) => (e as { id: string }).id));
       for (const row of demRes.rows) {
         if (!existingIds.has(row.id)) lastEvents.push(row);
       }
     }
 
-    // 3) Related tasks impacted
+    // Evidence: related tasks
     let relatedTasks: unknown[] = [];
     if (incident.dem_id) {
       const taskRes = await db.query(
@@ -85,17 +84,51 @@ export async function GET(
       ok: true,
       data: {
         ...incident,
-        evidence: {
-          last_events: lastEvents,
-          related_tasks: relatedTasks,
-        },
+        evidence: { last_events: lastEvents, related_tasks: relatedTasks },
       },
     });
   } catch (error) {
     console.error("Failed to fetch incident detail:", error);
-    return NextResponse.json(
-      { ok: false, error: String(error) },
-      { status: 500 }
+    return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });
+  }
+}
+
+// ── PATCH /api/dashboard/incidents/[id] ──────────────────────────────────────
+// Quick-action from modal: change status (investigating / resolved)
+
+const patchSchema = z.object({
+  status: z.enum(["open", "investigating", "mitigated", "closed"]),
+});
+
+export async function PATCH(req: NextRequest, { params }: RouteCtx) {
+  const { id } = await params;
+
+  let body: unknown;
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const parsed = patchSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  try {
+    const q = await db.query(
+      `UPDATE incidents
+       SET status = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING id, status, updated_at`,
+      [parsed.data.status, id]
     );
+
+    if (!q.rowCount || q.rowCount === 0) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, data: q.rows[0] });
+  } catch (error) {
+    console.error("Failed to patch incident:", error);
+    return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });
   }
 }
