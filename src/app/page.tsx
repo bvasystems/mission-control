@@ -23,14 +23,26 @@ last_check: string;
 uptime_pct?: number | null;
 };
 
+type ReliabilityMeta = {
+sla_rate?: number;
+completion_rate?: number;
+error_rate?: number;
+avg_ack_min?: number;
+sample_size?: number;
+window_days?: number;
+};
+
 type AgentStat = {
 id: string;
+agent_id?: string;
 date: string;
 messages_sent: number;
 skills_used: number;
 errors: number;
 model_tokens_used: number;
 uptime_hours: number;
+reliability_score?: number;
+reliability_meta?: ReliabilityMeta;
 };
 
 type StatsPayload = {
@@ -52,7 +64,7 @@ down: "bg-red-500/20 text-red-300 border-red-500/40",
 export default function Page() {
 const [title, setTitle] = useState("");
 const [priority, setPriority] = useState<"low" | "medium" | "high" | "critical">("medium");
-const [assignedTo, setAssignedTo] = useState("caio");
+const [assignedTo, setAssignedTo] = useState("");
 const [loading, setLoading] = useState(false);
 
 const [taskList, setTaskList] = useState<Task[]>([]);
@@ -104,6 +116,27 @@ const counts = { pending: 0, done: 0, blocked: 0 };
 taskList.forEach((t) => counts[t.status]++);
 return counts;
 }, [taskList]);
+
+const agentsForDropdown = useMemo(() => {
+const map = new Map<string, AgentStat>();
+for (const s of agentStats) {
+if (!s.agent_id) continue;
+const prev = map.get(s.agent_id);
+if (!prev || new Date(s.date) > new Date(prev.date)) {
+map.set(s.agent_id, s);
+}
+}
+const arr = Array.from(map.values());
+arr.sort((a, b) => {
+const sa = a.reliability_score;
+const sb = b.reliability_score;
+if (sa == null && sb == null) return 0;
+if (sa == null) return 1;
+if (sb == null) return -1;
+return sb - sa;
+});
+return arr;
+}, [agentStats]);
 
 useEffect(() => {
 const t1 = setTimeout(refresh, 0);
@@ -159,12 +192,18 @@ return () => { clearTimeout(t1); clearInterval(t2); };
               <option value="high">High</option>
               <option value="critical">Critical</option>
             </select>
-            <input
-              className="md:col-span-2 bg-black/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-600"
-              placeholder="Owner"
+            <select
+              className="md:col-span-2 bg-black/60 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 transition-all text-zinc-300"
               value={assignedTo}
               onChange={(e) => setAssignedTo(e.target.value)}
-            />
+            >
+              <option value="">Owner</option>
+              {agentsForDropdown.map((a) => (
+                <option key={a.agent_id} value={a.agent_id}>
+                  {a.agent_id} ({a.reliability_score != null ? Math.round(a.reliability_score) : '-- '})
+                </option>
+              ))}
+            </select>
             <button
               onClick={createTask}
               disabled={loading || !title.trim()}

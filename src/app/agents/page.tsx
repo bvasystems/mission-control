@@ -13,6 +13,15 @@ errors_24h: number;
 updated_at: string;
 };
 
+type ReliabilityMeta = {
+sla_rate?: number;
+completion_rate?: number;
+error_rate?: number;
+avg_ack_min?: number;
+sample_size?: number;
+window_days?: number;
+};
+
 type AgentStat = {
 id: string;
 agent_id: string;
@@ -22,6 +31,8 @@ skills_used: number;
 errors: number;
 model_tokens_used: number;
 uptime_hours: number;
+reliability_score?: number;
+reliability_meta?: ReliabilityMeta;
 };
 
 type Combined = AgentStatus & {
@@ -139,6 +150,7 @@ className="border border-zinc-700 rounded-xl px-4 py-2 text-sm hover:bg-zinc-900
 <th className="text-left p-3">Agente IA</th>
 <th className="text-left p-3">Clearance</th>
 <th className="text-left p-3">Health</th>
+<th className="text-left p-3">Reliability</th>
 <th className="text-left p-3">Last Ping</th>
 <th className="text-left p-3">Carga (msgs/24h)</th>
 <th className="text-left p-3">Falhas (24h)</th>
@@ -162,6 +174,43 @@ className="border border-zinc-700 rounded-xl px-4 py-2 text-sm hover:bg-zinc-900
 <span className={`text-xs border rounded-full px-2 py-1 ${statusBadge[r.status]}`}>
 {r.status}
 </span>
+</td>
+<td className="p-3">
+{(() => {
+const score = r.stat?.reliability_score;
+const meta = r.stat?.reliability_meta;
+if (score == null) {
+return <span className="text-zinc-500 font-mono">--</span>;
+}
+const s = Math.round(score);
+let colorClass = "bg-red-500/20 text-red-300 border-red-500/40";
+if (s >= 80) colorClass = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+else if (s >= 60) colorClass = "bg-yellow-500/20 text-yellow-300 border-yellow-500/40";
+
+const badge = (
+<span className={`text-xs border rounded-full px-2 py-1 ${colorClass}`}>
+{s}
+</span>
+);
+
+if (!meta) return badge;
+
+return (
+<div className="group relative inline-block cursor-help">
+{badge}
+<div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-max -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 bg-zinc-900 border border-zinc-700 text-xs text-zinc-300 p-3 rounded-lg shadow-xl">
+<p className="font-semibold mb-1 text-zinc-100">Métricas SLA</p>
+<div className="space-y-1">
+<p>SLA: <span className="text-zinc-100">{meta.sla_rate != null ? `${Math.round(meta.sla_rate)}%` : '--'}</span></p>
+<p>Conclusão: <span className="text-zinc-100">{meta.completion_rate != null ? `${Math.round(meta.completion_rate)}%` : '--'}</span></p>
+<p>Erro: <span className="text-zinc-100">{meta.error_rate != null ? `${Math.round(meta.error_rate)}%` : '--'}</span></p>
+<p>ACK médio: <span className="text-zinc-100">{meta.avg_ack_min != null ? `${Math.round(meta.avg_ack_min)} min` : '--'}</span></p>
+<p>Amostra: <span className="text-zinc-100">{meta.sample_size != null ? meta.sample_size : '--'}</span></p>
+</div>
+</div>
+</div>
+);
+})()}
 </td>
 <td className="p-3 text-zinc-300">
 {r.last_seen ? new Date(r.last_seen).toLocaleString() : "-"}
