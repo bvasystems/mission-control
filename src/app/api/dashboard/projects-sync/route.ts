@@ -118,21 +118,24 @@ export async function POST(req: NextRequest) {
       snapshotSaved = true;
     }
 
-    // 3) Insert links (if provided)
+    // 3) Insert links (if provided) + backfill tasks.project_key
     let linksSaved = 0;
     if (links && links.length > 0) {
       for (const link of links) {
         await client.query(
           `INSERT INTO project_links (project_key, dem_id, task_id, command_id, agent_id, created_at)
            VALUES ($1, $2, $3, $4, $5, NOW())`,
-          [
-            p.project_key,
-            link.dem_id ?? null,
-            link.task_id ?? null,
-            link.command_id ?? null,
-            link.agent_id ?? null,
-          ]
+          [p.project_key, link.dem_id ?? null, link.task_id ?? null, link.command_id ?? null, link.agent_id ?? null]
         );
+
+        // Backfill: if task_id provided, keep tasks.project_key in sync
+        if (link.task_id) {
+          await client.query(
+            `UPDATE tasks SET project_key = $1, updated_at = NOW() WHERE id = $2`,
+            [p.project_key, link.task_id]
+          );
+        }
+
         linksSaved++;
       }
     }

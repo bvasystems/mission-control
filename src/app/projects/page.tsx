@@ -268,7 +268,7 @@ function ProjectCard({ project: p, onDetail }: { project: Project; onDetail: () 
           Ver detalhes
         </button>
         <Link
-          href={`/kanban?project=${p.project_key}`}
+          href={`/kanban?project_key=${p.project_key}`}
           className="flex-1 text-center text-xs border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 rounded-lg py-1.5 hover:bg-indigo-500/20 transition-colors"
         >
           Abrir board →
@@ -420,7 +420,7 @@ function DetailModal({
               {/* Board link */}
               <div className="border-t border-zinc-800 pt-4">
                 <Link
-                  href={`/kanban?project=${p!.project_key}`}
+                  href={`/kanban?project_key=${p!.project_key}`}
                   className="inline-flex items-center gap-2 text-xs border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 rounded-lg px-4 py-2 hover:bg-indigo-500/20 transition-colors"
                 >
                   Abrir Kanban Board →

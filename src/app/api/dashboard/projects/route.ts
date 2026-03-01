@@ -1,25 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const createSchema = z.object({
-  project_key: z.string().min(2),
-  name: z.string().min(1),
-  owner: z.string().optional(),
-  status: z.enum(["active", "at_risk", "blocked", "done"]).default("active"),
-  priority: z.string().optional(),
-  objective: z.string().optional(),
-  start_date: z.string().optional(),
-  target_date: z.string().optional(),
-});
+// ── Column mapping: tasks."column" → bucket name ──────────────────────────────
 
-// ── GET /api/dashboard/projects ───────────────────────────────────────────────
+// The tasks table uses "column" values: backlog, in_progress, blocked, validation, done
+// We map them to: todo, doing, review, done, blocked
+
+function buildMetricsFromRows(rows: { column: string; cnt: string }[]) {
+  let total = 0, todo = 0, doing = 0, review = 0, done = 0, blocked = 0;
+  for (const r of rows) {
+    const cnt = Number(r.cnt);
+    total += cnt;
+    switch (r.column) {
+      case "backlog":     todo    += cnt; break;
+      case "in_progress": doing   += cnt; break;
+      case "validation":  review  += cnt; break;
+      case "done":        done    += cnt; break;
+      case "blocked":     blocked += cnt; break;
+    }
+  }
+  const progress_pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return { total_tasks: total, todo_tasks: todo, doing_tasks: doing, review_tasks: review, done_tasks: done, blocked_tasks: blocked, progress_pct };
+}
+
+// ── GET /api/dashboard/projects ─────────────────────────────────────────────
 
 export async function GET() {
   try {
-    const q = await db.query(`
+    // 1) Fetch all projects with latest incidents_open and reliability from project_metrics
+    const projectsRes = await db.query(`
       SELECT
         p.project_key,
         p.name,
@@ -32,20 +43,13 @@ export async function GET() {
         p.created_at,
         p.updated_at,
         m.snapshot_at,
-        m.progress_pct,
-        m.total_tasks,
-        m.todo_tasks,
-        m.doing_tasks,
-        m.review_tasks,
-        m.done_tasks,
-        m.blocked_tasks,
         m.incidents_open,
         m.risk_score,
         m.reliability_avg,
         m.last_update_at
       FROM projects p
       LEFT JOIN LATERAL (
-        SELECT *
+        SELECT snapshot_at, incidents_open, risk_score, reliability_avg, last_update_at
         FROM project_metrics pm
         WHERE pm.project_key = p.project_key
         ORDER BY pm.snapshot_at DESC
@@ -61,34 +65,48 @@ export async function GET() {
         p.updated_at DESC
     `);
 
-    const data = q.rows.map((r) => ({
-      project_key: r.project_key,
-      name: r.name,
-      owner: r.owner,
-      status: r.status,
-      priority: r.priority,
-      objective: r.objective,
-      start_date: r.start_date,
-      target_date: r.target_date,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-      metrics: r.snapshot_at
-        ? {
-            snapshot_at: r.snapshot_at,
-            progress_pct: Number(r.progress_pct ?? 0),
-            total_tasks: Number(r.total_tasks ?? 0),
-            todo_tasks: Number(r.todo_tasks ?? 0),
-            doing_tasks: Number(r.doing_tasks ?? 0),
-            review_tasks: Number(r.review_tasks ?? 0),
-            done_tasks: Number(r.done_tasks ?? 0),
-            blocked_tasks: Number(r.blocked_tasks ?? 0),
-            incidents_open: Number(r.incidents_open ?? 0),
-            risk_score: Number(r.risk_score ?? 0),
-            reliability_avg: Number(r.reliability_avg ?? 0),
-            last_update_at: r.last_update_at,
-          }
-        : null,
-    }));
+    // 2) Fetch real task counters per project from tasks table
+    const taskCountRes = await db.query(`
+      SELECT project_key, "column", COUNT(*) AS cnt
+      FROM tasks
+      WHERE project_key IS NOT NULL
+      GROUP BY project_key, "column"
+    `);
+
+    // Build map: project_key → column buckets
+    const taskMap: Record<string, { column: string; cnt: string }[]> = {};
+    for (const row of taskCountRes.rows) {
+      if (!taskMap[row.project_key]) taskMap[row.project_key] = [];
+      taskMap[row.project_key].push(row);
+    }
+
+    const data = projectsRes.rows.map((r) => {
+      const taskRows = taskMap[r.project_key] ?? [];
+      const realMetrics = buildMetricsFromRows(taskRows);
+
+      return {
+        project_key: r.project_key,
+        name: r.name,
+        owner: r.owner,
+        status: r.status,
+        priority: r.priority,
+        objective: r.objective,
+        start_date: r.start_date,
+        target_date: r.target_date,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        metrics: {
+          // Real-time task counters from tasks table (source of truth)
+          ...realMetrics,
+          // Supplementary fields from project_metrics snapshot (reliability, risk, incidents)
+          snapshot_at: r.snapshot_at ?? null,
+          incidents_open: Number(r.incidents_open ?? 0),
+          risk_score: Number(r.risk_score ?? 0),
+          reliability_avg: Number(r.reliability_avg ?? 0),
+          last_update_at: r.last_update_at ?? null,
+        },
+      };
+    });
 
     return NextResponse.json({ ok: true, data });
   } catch (error) {
@@ -98,6 +116,19 @@ export async function GET() {
 }
 
 // ── POST /api/dashboard/projects ─────────────────────────────────────────────
+
+import { z } from "zod";
+
+const createSchema = z.object({
+  project_key: z.string().min(2),
+  name: z.string().min(1),
+  owner: z.string().optional(),
+  status: z.enum(["active", "at_risk", "blocked", "done"]).default("active"),
+  priority: z.string().optional(),
+  objective: z.string().optional(),
+  start_date: z.string().optional(),
+  target_date: z.string().optional(),
+});
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -126,16 +157,7 @@ export async function POST(req: NextRequest) {
          start_date  = COALESCE(EXCLUDED.start_date, projects.start_date),
          target_date = COALESCE(EXCLUDED.target_date, projects.target_date),
          updated_at  = NOW()`,
-      [
-        d.project_key,
-        d.name,
-        d.owner ?? null,
-        d.status,
-        d.priority ?? null,
-        d.objective ?? null,
-        d.start_date ?? null,
-        d.target_date ?? null,
-      ]
+      [d.project_key, d.name, d.owner ?? null, d.status, d.priority ?? null, d.objective ?? null, d.start_date ?? null, d.target_date ?? null]
     );
 
     return NextResponse.json({ ok: true, data: { project_key: d.project_key } }, { status: 201 });
