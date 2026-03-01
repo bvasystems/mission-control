@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { guardApiRoute } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -101,10 +100,7 @@ function mergeDetails(
 
 // ── GET /api/dashboard/incidents ─────────────────────────────────────────────
 
-export async function GET(req: NextRequest) {
-  const guard = guardApiRoute(req);
-  if (guard) return guard;
-
+export async function GET() {
   try {
     const q = await db.query(
       `SELECT id, title, severity, status, owner, source, impact, next_action,
