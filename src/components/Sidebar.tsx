@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AuthButton from "@/components/AuthButton";
-import { LayoutDashboard, KanbanSquare, TriangleAlert, Clock, Bot } from "lucide-react";
+import { LayoutDashboard, KanbanSquare, TriangleAlert, Clock, Bot, FolderKanban } from "lucide-react";
 
 const items = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/kanban", label: "Kanban", icon: KanbanSquare },
   { href: "/incidents", label: "Incidents", icon: TriangleAlert },
   { href: "/crons", label: "Crons", icon: Clock },
