@@ -62,10 +62,7 @@ export default function CanvasPage() {
         {/* Agent grid */}
         <div className={`flex-1 overflow-y-auto transition-all duration-300 ${feedOpen ? "pr-[340px]" : ""}`}>
           <div className="p-8 pt-6">
-            <div
-              className="grid gap-4 relative z-10"
-              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}
-            >
+            <div className="flex flex-wrap justify-center gap-6 relative z-10">
               {agents.length === 0 ? (
                 Array.from({ length: 6 }).map((_, i) => <AgentCardSkeleton key={i} />)
               ) : (
