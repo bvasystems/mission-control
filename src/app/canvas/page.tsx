@@ -10,13 +10,12 @@ import { TerminalSquare } from "lucide-react";
 
 function AgentCardSkeleton() {
   return (
-    <div className="glass rounded-2xl px-5 py-4 border border-white/[0.05] animate-pulse flex items-center gap-4">
-      <div className="w-10 h-10 rounded-full bg-white/10 shrink-0" />
-      <div className="flex-1 space-y-2">
-        <div className="h-4 bg-white/10 rounded w-2/3" />
-        <div className="h-3 bg-white/10 rounded w-1/3" />
+    <div className="bg-zinc-900/80 border border-white/[0.07] rounded-2xl flex flex-col items-center justify-center text-center px-4 py-6 gap-3 animate-pulse ring-1 ring-zinc-700/30">
+      <div className="w-14 h-14 rounded-full bg-zinc-800" />
+      <div className="space-y-1.5">
+        <div className="h-3 bg-zinc-800 rounded w-20 mx-auto" />
+        <div className="h-2.5 bg-zinc-800/60 rounded w-14 mx-auto" />
       </div>
-      <div className="w-2 h-2 rounded-full bg-white/10" />
     </div>
   );
 }
@@ -32,47 +31,43 @@ export default function CanvasPage() {
     down:     agents.filter(a => a.status === "down").length,
   }), [agents]);
 
-  const unreadCount = activities.length;
-
   return (
     <div className="h-full flex flex-col bg-transparent text-zinc-100 overflow-hidden">
-      {/* Top bar */}
       <StatusBar tasks={tasks} agentCounts={agentCounts} isConnected={isConnected} />
 
-      {/* Main body — positioned relative for absolute drawer */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Ambient background */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[140px] rounded-full pointer-events-none" />
 
-        {/* Feed toggle button — always visible top-right */}
-        <button
-          onClick={() => setFeedOpen(v => !v)}
-          className={`absolute top-4 right-4 z-40 flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all duration-200 shadow-lg ${
-            feedOpen
-              ? "bg-blue-500/20 border-blue-500/40 text-blue-300"
-              : "glass border-white/[0.1] text-zinc-400 hover:text-zinc-200 hover:border-white/[0.2]"
-          }`}
-        >
-          <TerminalSquare size={16} />
-          <span className="hidden sm:inline">Feed</span>
-          {unreadCount > 0 && !feedOpen && (
-            <span className="bg-blue-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center font-mono">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
-        </button>
+        {/* Feed toggle */}
+        <div className="absolute top-4 right-4 z-40">
+          <button
+            onClick={() => setFeedOpen(v => !v)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all duration-200 shadow-lg ${
+              feedOpen
+                ? "bg-blue-500/20 border-blue-500/40 text-blue-300"
+                : "bg-zinc-900/80 border-white/[0.1] text-zinc-400 hover:text-zinc-200 hover:border-white/[0.2]"
+            }`}
+          >
+            <TerminalSquare size={15} />
+            <span className="hidden sm:inline text-xs uppercase tracking-widest font-mono">Feed</span>
+            {activities.length > 0 && !feedOpen && (
+              <span className="bg-blue-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {activities.length > 99 ? "99" : activities.length}
+              </span>
+            )}
+          </button>
+        </div>
 
-        {/* Agent grid — narrows when feed is open */}
+        {/* Agent grid */}
         <div className={`flex-1 overflow-y-auto transition-all duration-300 ${feedOpen ? "pr-[340px]" : ""}`}>
-          <div className="p-6">
-            {/* Ambient */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 relative z-10">
+          <div className="p-8 pt-6">
+            <div
+              className="grid gap-4 relative z-10"
+              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}
+            >
               {agents.length === 0 ? (
-                <>
-                  <AgentCardSkeleton />
-                  <AgentCardSkeleton />
-                  <AgentCardSkeleton />
-                </>
+                Array.from({ length: 6 }).map((_, i) => <AgentCardSkeleton key={i} />)
               ) : (
                 agents.map((agent: AgentWithStats) => (
                   <AgentCard key={agent.id} agent={agent} />
@@ -82,7 +77,7 @@ export default function CanvasPage() {
           </div>
         </div>
 
-        {/* Activity Feed drawer */}
+        {/* Feed drawer */}
         <ActivityFeed
           activities={activities}
           open={feedOpen}
@@ -90,7 +85,6 @@ export default function CanvasPage() {
         />
       </div>
 
-      {/* Command bar */}
       <CommandBar />
     </div>
   );
