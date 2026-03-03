@@ -1,16 +1,14 @@
 import React from "react";
 import { TaskUpdate } from "@/hooks/useAgentStream";
+import { Shield } from "lucide-react";
 
 export function StatusBar({ tasks }: { tasks: TaskUpdate[] }) {
-  // Counters based on statuses
-  // status: "pending", "blocked", "done" -> map from prompt or standard task workflow
   let pendingCount = 0;
   let executingCount = 0;
   let blockedCount = 0;
   let doneCount = 0;
 
   tasks.forEach((task) => {
-    // Handling standard task.status from previous findings
     const stat = task.status?.toLowerCase();
     const stage = task.stage?.toLowerCase();
 
@@ -26,34 +24,37 @@ export function StatusBar({ tasks }: { tasks: TaskUpdate[] }) {
   });
 
   return (
-    <div className="w-full bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/50 px-5 py-3.5 flex items-center justify-between shrink-0">
-      <div className="flex items-center space-x-2">
-        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-        <h1 className="font-bold text-lg text-white tracking-wide">
-          Mission Control <span className="text-zinc-500 font-light mx-2">|</span> Canvas
-        </h1>
+    <div className="w-full bg-black/40 backdrop-blur-md border-b border-white/[0.08] px-6 py-4 flex flex-col md:flex-row md:items-center justify-between shrink-0 shadow-lg relative z-20">
+      <div className="flex items-center space-x-3 mb-4 md:mb-0">
+        <Shield size={20} className="text-blue-500" />
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-blue-400 font-semibold mb-0.5 leading-none">Visão Tática</p>
+          <h1 className="font-medium text-xl text-white tracking-tight leading-none">
+            Canvas Operacional
+          </h1>
+        </div>
       </div>
 
-      <div className="flex gap-4 text-xs font-semibold mr-2 border border-zinc-800 rounded-lg bg-zinc-900/50 p-1">
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-zinc-800 rounded-md text-zinc-300">
-          <span className="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+      <div className="flex flex-wrap gap-2 text-[10px] font-mono font-medium tracking-wider uppercase">
+        <div className="flex items-center gap-2 px-3 py-1.5 border border-white/[0.06] bg-black/40 rounded-lg text-zinc-400 shadow-inner">
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 shadow-[0_0_5px_currentColor]"></span>
           Pending
-          <span className="font-mono text-zinc-100 ml-1">{pendingCount}</span>
+          <span className="text-zinc-100 ml-1 badge-value">{pendingCount}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 rounded-md text-blue-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.6)] animate-pulse"></span>
+        <div className="flex items-center gap-2 px-3 py-1.5 border border-blue-500/20 bg-blue-500/10 rounded-lg text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_currentColor] animate-pulse"></span>
           Em Execução
-          <span className="font-mono text-blue-200 ml-1">{executingCount}</span>
+          <span className="text-blue-200 ml-1 badge-value">{executingCount}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 rounded-md text-rose-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+        <div className="flex items-center gap-2 px-3 py-1.5 border border-red-500/20 bg-red-500/10 rounded-lg text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_currentColor]"></span>
           Bloqueado
-          <span className="font-mono text-rose-200 ml-1">{blockedCount}</span>
+          <span className="text-red-200 ml-1 badge-value">{blockedCount}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 rounded-md text-emerald-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        <div className="flex items-center gap-2 px-3 py-1.5 border border-emerald-500/20 bg-emerald-500/10 rounded-lg text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_currentColor]"></span>
           Concluído
-          <span className="font-mono text-emerald-200 ml-1">{doneCount}</span>
+          <span className="text-emerald-200 ml-1 badge-value">{doneCount}</span>
         </div>
       </div>
     </div>

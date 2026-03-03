@@ -5,7 +5,7 @@ import {
   CheckCircle2, 
   AlertCircle, 
   RefreshCcw, 
-  Power,
+  TerminalSquare,
   Info 
 } from "lucide-react";
 
@@ -24,13 +24,13 @@ function formatRelativeTime(dateString: string) {
 
 function getEventIcon(type: string) {
   switch (type?.toUpperCase()) {
-    case "ASSIGN": return <Play size={14} className="text-emerald-400" />;
+    case "ASSIGN": return <Play size={12} className="text-emerald-400" />;
     case "ACK":
-    case "UPDATE": return <RefreshCcw size={14} className="text-blue-400" />;
+    case "UPDATE": return <RefreshCcw size={12} className="text-blue-400" />;
     case "DONE": 
-    case "CLOSE": return <CheckCircle2 size={14} className="text-zinc-400" />;
-    case "BLOCKED": return <AlertCircle size={14} className="text-rose-400" />;
-    default: return <Info size={14} className="text-zinc-500" />;
+    case "CLOSE": return <CheckCircle2 size={12} className="text-zinc-400" />;
+    case "BLOCKED": return <AlertCircle size={12} className="text-rose-400" />;
+    default: return <Info size={12} className="text-zinc-500" />;
   }
 }
 
@@ -40,18 +40,22 @@ function truncateString(str: string, num: number) {
   return str.slice(0, num) + "...";
 }
 
-function extractMessageFromPayload(payload: any) {
-  if (!payload) return "Evento sem payload";
-  if (typeof payload === "string") return truncateString(payload, 45);
-  // Support custom shapes like { title: "..." } or { status_text: "..." }
-  return truncateString(
-    payload.title || payload.status_text || payload.message || "Evento executado",
-    45
-  );
+function extractMessageFromPayload(payload: unknown) {
+  if (!payload) return "Evento executado em background";
+  if (typeof payload === "string") return truncateString(payload, 50);
+  
+  if (typeof payload === "object" && payload !== null) {
+    const p = payload as Record<string, unknown>;
+    const msg = p.title || p.status_text || p.message;
+    if (typeof msg === "string") {
+      return truncateString(msg, 50);
+    }
+  }
+  
+  return "Evento computado";
 }
 
 export function ActivityFeed({ activities }: { activities: ActivityEvent[] }) {
-  // To implement "Filtrável por agente (tabs no topo)", extracting unique agents:
   const [filter, setFilter] = React.useState<string>("all");
   
   const uniqueAgents = Array.from(new Set(activities.map(a => a.agent_id || a.source || "Sistema").filter(Boolean)));
@@ -63,36 +67,37 @@ export function ActivityFeed({ activities }: { activities: ActivityEvent[] }) {
   });
 
   return (
-    <div className="flex flex-col h-full bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-950">
-        <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
-          <Power size={14} className="text-emerald-500 animate-pulse" />
-          Live Feed
+    <div className="flex flex-col h-full glass rounded-2xl overflow-hidden shadow-2xl relative">
+      <div className="absolute top-0 right-0 w-[200px] h-[200px] bg-blue-500/10 blur-[60px] rounded-full pointer-events-none -z-10"></div>
+      
+      <div className="px-5 py-4 border-b border-white/[0.08] bg-black/40">
+        <h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium flex items-center justify-between">
+          <span className="flex items-center gap-2"><TerminalSquare size={16} className="text-blue-400"/> Live Feed</span>
+          <span className="text-[10px] text-blue-500 bg-blue-500/10 px-2 py-1 rounded font-mono border border-blue-500/20 shadow-[0_0_8px_rgba(59,130,246,0.2)]">
+            {filteredActivities.length} PACKETS
+          </span>
         </h2>
-        <span className="text-xs text-zinc-500 font-mono tracking-wider">
-          {filteredActivities.length} EVTS
-        </span>
       </div>
 
-      <div className="px-3 py-2 border-b border-zinc-800 bg-zinc-900/50 flex gap-2 overflow-x-auto scrollbar-hide">
+      <div className="px-3 py-2 border-b border-white/[0.04] bg-black/20 flex gap-2 overflow-x-auto custom-scrollbar flex-shrink-0">
         <button
           onClick={() => setFilter("all")}
-          className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${
+          className={`px-3 py-1 rounded text-[10px] font-mono whitespace-nowrap transition-colors uppercase tracking-wider border ${
             filter === "all" 
-              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
-              : "bg-zinc-800 text-zinc-400 border-transparent hover:bg-zinc-700"
+              ? "bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-[0_0_10px_rgba(59,130,246,0.3)]" 
+              : "bg-black/60 text-zinc-500 border-transparent hover:bg-black/80 hover:text-zinc-300"
           }`}
         >
-          Todos
+          Stream Global
         </button>
         {uniqueAgents.map(agent => (
           <button
             key={agent}
             onClick={() => setFilter(agent)}
-            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${
+            className={`px-3 py-1 rounded text-[10px] font-mono whitespace-nowrap transition-colors uppercase tracking-wider border ${
               filter === agent 
-                ? "bg-zinc-700 text-zinc-100 border-zinc-600" 
-                : "bg-zinc-800 text-zinc-400 border-transparent hover:bg-zinc-700"
+                ? "bg-white/[0.08] text-zinc-100 border-white/[0.15]" 
+                : "bg-black/60 text-zinc-500 border-transparent hover:bg-black/80 hover:text-zinc-300"
             }`}
           >
             {agent}
@@ -100,35 +105,37 @@ export function ActivityFeed({ activities }: { activities: ActivityEvent[] }) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
         {filteredActivities.length === 0 ? (
-          <div className="text-center text-zinc-600 text-sm mt-10">
-            Aguardando eventos...
+          <div className="text-center text-zinc-600 text-sm mt-10 italic">
+            Sem intercepções ativas...
           </div>
         ) : (
           filteredActivities.map((activity, index) => (
             <div 
               key={activity.id || index}
-              className="flex items-start gap-3 animate-slide-in group relative"
+              className="flex items-start gap-3 animate-slide-in group p-3 bg-black/40 border border-white/[0.04] rounded-xl hover:bg-black/60 hover:border-white/[0.08] transition-colors relative overflow-hidden"
               style={{ animationDuration: '300ms' }}
             >
-              <div className="pt-0.5 mt-0.5">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              
+              <div className="pt-0.5 ml-1 bg-black/60 border border-white/10 p-1.5 rounded-lg shadow-inner">
                 {getEventIcon(activity.event_type)}
               </div>
               
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-xs font-medium text-zinc-300 capitalize">
-                    {activity.agent_id || activity.source || "Sistema"}
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_5px_currentColor]"></span> {activity.agent_id || activity.source || "Sistema"}
                   </span>
-                  <span className="text-[10px] text-zinc-500 font-mono">
+                  <span className="text-[10px] text-zinc-500 font-mono tracking-wider">
                     {formatRelativeTime(activity.created_at)}
                   </span>
                 </div>
                 
-                <p className="text-xs text-zinc-400 leading-relaxed truncate">
-                  <span className="font-mono text-[10px] text-zinc-600 mr-2 uppercase">
-                    [{activity.event_type}]
+                <p className="text-xs text-zinc-400 leading-snug">
+                  <span className="font-mono text-[9px] text-blue-400 bg-blue-500/10 px-1 py-0.5 rounded mr-1.5 border border-blue-500/20">
+                    {activity.event_type}
                   </span>
                   {extractMessageFromPayload(activity.payload)}
                 </p>
@@ -140,18 +147,11 @@ export function ActivityFeed({ activities }: { activities: ActivityEvent[] }) {
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes slideIn {
-          from { opacity: 0; transform: translateX(10px); }
-          to { opacity: 1; transform: translateX(0); }
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         .animate-slide-in {
           animation: slideIn ease-out forwards;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;  /* IE and Edge */
-          scrollbar-width: none;  /* Firefox */
         }
       `}} />
     </div>
