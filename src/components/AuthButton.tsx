@@ -9,7 +9,7 @@ if (email.includes("joao")) return "L4";
 return "L1";
 }
 
-export default function AuthButton() {
+export default function AuthButton({ collapsed }: { collapsed?: boolean }) {
 const { data: session, status } = useSession();
 
 if (status === "loading") {
@@ -36,38 +36,43 @@ Acessar Painel
 
 const role = getRole(session.user?.email);
 
-return (
-<div className="space-y-3">
-<div className="flex items-center gap-3">
+  return (
+    <div className={collapsed ? "" : "space-y-3"}>
+      <div className="flex items-center gap-3">
         {session.user?.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={session.user.image}
             alt="avatar"
-            className="h-8 w-8 rounded-full border border-white/10"
+            className="h-8 w-8 rounded-full border border-white/10 shrink-0"
           />
         ) : (
-          <div className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-xs font-medium text-zinc-300">
+          <div className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-xs font-medium text-zinc-300 shrink-0">
             {session.user?.name?.slice(0, 1)?.toUpperCase() ?? "U"}
           </div>
         )}
 
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate text-zinc-200">{session.user?.name || "Operador"}</p>
-          <p className="text-[10px] text-zinc-500 truncate">{session.user?.email}</p>
-        </div>
+        {!collapsed && (
+          <>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate text-zinc-200">{session.user?.name || "Operador"}</p>
+              <p className="text-[10px] text-zinc-500 truncate">{session.user?.email}</p>
+            </div>
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 font-mono tracking-wider shrink-0">
+              {role}
+            </span>
+          </>
+        )}
+      </div>
 
-        <span className="text-[9px] px-1.5 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 font-mono tracking-wider">
-          {role}
-        </span>
-</div>
-
-<button
-onClick={() => signOut()}
-className="w-full text-sm border border-zinc-700 rounded-xl px-3 py-2 hover:bg-zinc-900"
->
-Sair
-</button>
-</div>
-);
+      {!collapsed && (
+        <button
+          onClick={() => signOut()}
+          className="w-full text-sm border border-zinc-700 rounded-xl px-3 py-2 hover:bg-zinc-900"
+        >
+          Sair
+        </button>
+      )}
+    </div>
+  );
 }
