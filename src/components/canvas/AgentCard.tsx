@@ -51,7 +51,8 @@ const LEVEL = {
 
 export function AgentCard({ agent }: { agent: AgentWithStats }) {
   const cfg = STATUS[agent.status ?? "idle"] ?? STATUS.idle;
-  const lvl = LEVEL[String(agent.level ?? "1") as keyof typeof LEVEL] ?? LEVEL["1"];
+  const levelKey = String(agent.level ?? "1").replace(/^L/i, "") as keyof typeof LEVEL;
+  const lvl = LEVEL[levelKey] ?? LEVEL["1"];
   const initial  = agent.name.charAt(0).toUpperCase();
   const errors   = agent.errors_24h ?? 0;
   const tokens   = agent.tokens ?? 0;
