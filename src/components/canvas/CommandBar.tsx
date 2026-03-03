@@ -39,17 +39,17 @@ export function CommandBar() {
       setCommand("");
 
       setTimeout(() => setStatus("idle"), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to dispatch task", error);
       setStatus("error");
-      setErrorMessage(error.message || "Erro ao despachar tarefa");
+      setErrorMessage(error instanceof Error ? error.message : "Erro ao despachar tarefa");
       
       setTimeout(() => setStatus("idle"), 4000);
     }
   };
 
   return (
-    <div className="w-full bg-zinc-950 border-t border-zinc-800 p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-20 sticky bottom-0">
+    <div className="w-full bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800/50 p-4 shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-20">
       <form onSubmit={handleSubmit} className="max-w-[1400px] mx-auto relative group">
         <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-emerald-500">
           <Terminal size={18} />

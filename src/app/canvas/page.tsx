@@ -9,20 +9,20 @@ import { StatusBar } from "@/components/canvas/StatusBar";
 
 function AgentCardSkeleton() {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex flex-col gap-4 animate-pulse">
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col gap-4 animate-pulse">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-zinc-800"></div>
-        <div className="flex-1 space-y-2">
-          <div className="h-4 bg-zinc-800 rounded w-1/3"></div>
-          <div className="h-3 bg-zinc-800 rounded w-1/4"></div>
+        <div className="w-10 h-10 rounded-full bg-zinc-800 flex-shrink-0"></div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="h-4 bg-zinc-800 rounded w-1/2"></div>
+          <div className="h-3 bg-zinc-800 rounded w-1/3"></div>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div className="h-16 bg-zinc-800/50 rounded-lg"></div>
-        <div className="h-16 bg-zinc-800/50 rounded-lg"></div>
-        <div className="h-16 bg-zinc-800/50 rounded-lg"></div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="h-16 bg-zinc-800/40 rounded-lg"></div>
+        <div className="h-16 bg-zinc-800/40 rounded-lg"></div>
+        <div className="h-16 bg-zinc-800/40 rounded-lg"></div>
       </div>
-      <div className="h-4 bg-zinc-800/50 rounded w-1/2 mt-2"></div>
+      <div className="h-3 bg-zinc-800/50 rounded w-2/3 mt-1 pt-3"></div>
     </div>
   );
 }
@@ -31,7 +31,7 @@ export default function CanvasPage() {
   const { agents, activities, tasks, isConnected } = useAgentStream();
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col font-sans text-zinc-100 overflow-hidden">
+    <div className="h-full flex flex-col font-sans text-zinc-100 overflow-hidden bg-transparent">
       {/* Top Status Bar */}
       <StatusBar tasks={tasks} />
 
@@ -41,7 +41,7 @@ export default function CanvasPage() {
           
           {/* Agent Grid */}
           <div className="flex-1 flex flex-col min-w-0 pr-2">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-emerald-600 truncate">
                 Status Operacional
               </h2>
