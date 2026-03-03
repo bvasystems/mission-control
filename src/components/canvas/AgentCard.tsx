@@ -49,10 +49,10 @@ export function AgentCard({ agent }: { agent: AgentWithStats }) {
   const tokens = agent.tokens ?? 0;
 
   return (
-    <div className="relative group w-40">
+    <div className="relative group">
       {/* ── Compact card (always visible) ── */}
       <div
-        className={`bg-zinc-900/80 border border-white/[0.07] rounded-2xl flex flex-col items-center justify-center text-center px-4 py-6 gap-3 cursor-default transition-all duration-200
+        className={`bg-zinc-900/80 border border-white/[0.07] rounded-2xl flex flex-col items-center justify-center text-center p-5 gap-3 cursor-default transition-all duration-200 aspect-square
           hover:bg-zinc-800/80 hover:border-white/[0.14] hover:shadow-2xl hover:shadow-black/60
           ring-1 ${cfg.ring}`}
       >
