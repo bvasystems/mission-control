@@ -1,6 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 export type AgentStatus = "active" | "idle" | "degraded" | "down";
+
+export interface ReliabilityMeta {
+  sla_rate?: number;
+  completion_rate?: number;
+  error_rate?: number;
+  avg_ack_min?: number;
+  sample_size?: number;
+  window_days?: number;
+}
 
 export interface AgentWithStats {
   id: string;
@@ -12,7 +21,7 @@ export interface AgentWithStats {
   errors_24h: number;
   updated_at: string;
   reliability_score?: number;
-  reliability_meta?: any;
+  reliability_meta?: ReliabilityMeta;
   tokens?: number;
 }
 
@@ -22,7 +31,7 @@ export interface ActivityEvent {
   agent_id?: string;
   source?: string;
   event_type: string;
-  payload?: any;
+  payload?: unknown;
   created_at: string;
 }
 
