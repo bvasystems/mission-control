@@ -1,114 +1,97 @@
 import React from "react";
 import { AgentWithStats } from "@/hooks/useAgentStream";
-import { Clock, MessageSquare, Coins, AlertTriangle, Fingerprint } from "lucide-react";
+import { Clock, AlertTriangle } from "lucide-react";
 
 function formatRelativeTime(dateString: string) {
-  if (!dateString) return "Desconhecido";
+  if (!dateString) return "desconhecido";
   const date = new Date(dateString);
   const diffInSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  
+
   if (diffInSeconds < 60) return `há ${diffInSeconds}s`;
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   if (diffInMinutes < 60) return `há ${diffInMinutes}m`;
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) return `há ${diffInHours}h`;
-  const diffInDays = Math.floor(diffInHours / 24);
-  return `há ${diffInDays}d`;
+  return `há ${Math.floor(diffInHours / 24)}d`;
 }
 
+const STATUS_CONFIG = {
+  active:   { label: "Em Operação", color: "emerald", dot: "bg-emerald-500", glow: "shadow-emerald-500/30", border: "border-emerald-500/20", bg: "bg-emerald-500/5",   accent: "from-emerald-500/30 to-transparent" },
+  idle:     { label: "Ocioso",      color: "zinc",    dot: "bg-zinc-400",    glow: "shadow-zinc-400/10",   border: "border-zinc-700/50",   bg: "bg-zinc-500/5",     accent: "from-zinc-500/20 to-transparent" },
+  degraded: { label: "Instável",    color: "yellow",  dot: "bg-yellow-500",  glow: "shadow-yellow-500/30", border: "border-yellow-500/20", bg: "bg-yellow-500/5",   accent: "from-yellow-500/30 to-transparent" },
+  down:     { label: "Offline",     color: "red",     dot: "bg-red-500",     glow: "shadow-red-500/30",    border: "border-red-500/20",    bg: "bg-red-500/5",      accent: "from-red-500/30 to-transparent" },
+} as const;
+
 export function AgentCard({ agent }: { agent: AgentWithStats }) {
-  const isDown = agent.status === "down";
-  const isDegraded = agent.status === "degraded";
-  const isActive = agent.status === "active";
-
-  const colorClass = isActive 
-    ? "bg-emerald-500" 
-    : isDown 
-    ? "bg-red-500" 
-    : isDegraded 
-    ? "bg-yellow-500" 
-    : "bg-zinc-500";
-
-  const glowClass = isActive 
-    ? "bg-emerald-500/50 group-hover:bg-emerald-400 shadow-emerald-500/50" 
-    : isDown 
-    ? "bg-red-500/50 group-hover:bg-red-400 shadow-red-500/50" 
-    : isDegraded 
-    ? "bg-yellow-500/50 group-hover:bg-yellow-400 shadow-yellow-500/50" 
-    : "bg-zinc-500/50 group-hover:bg-zinc-400 shadow-zinc-500/50";
-
-  const statusText = isActive 
-    ? "Em Operação" 
-    : isDown 
-    ? "Offline" 
-    : isDegraded 
-    ? "Instável" 
-    : "Ocioso";
-
+  const cfg = STATUS_CONFIG[agent.status ?? "idle"] ?? STATUS_CONFIG.idle;
   const avatarInitial = agent.name ? agent.name.charAt(0).toUpperCase() : "?";
+  const isActive = agent.status === "active";
+  const isDegraded = agent.status === "degraded";
+  const isDown = agent.status === "down";
 
   return (
-    <div className="glass rounded-2xl p-5 shadow-xl shadow-black/50 relative overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:bg-white/[0.04]">
-      {/* Left Accent Glow */}
-      <div className={`absolute top-0 left-0 w-[2px] h-full transition-colors ${glowClass}`}></div>
+    <div className={`glass rounded-2xl p-5 shadow-xl shadow-black/50 relative overflow-hidden group transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl ${cfg.border}`}>
+      {/* Top accent gradient */}
+      <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r ${cfg.accent}`} />
       
-      {/* Background Ambient Glow */}
-      <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-[80px] -z-10 opacity-30 ${isActive ? "bg-emerald-500" : isDown ? "bg-red-500" : isDegraded ? "bg-yellow-500" : "bg-transparent"}`}></div>
+      {/* Background ambient */}
+      {(isActive || isDegraded || isDown) && (
+        <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-20 ${cfg.dot}`} />
+      )}
 
-      <div className="flex items-center gap-4">
-        <div className="relative">
-          <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-lg font-bold bg-black/60 text-zinc-100 shadow-inner">
+      {/* Header: Avatar + Name + Status */}
+      <div className="flex items-center gap-4 mb-5">
+        <div className="relative flex-shrink-0">
+          <div className="w-12 h-12 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-xl font-semibold text-zinc-200 shadow-inner">
             {avatarInitial}
           </div>
-          {/* Status dot */}
-          <div className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-zinc-950 flex items-center justify-center bg-zinc-950">
-            <div className={`w-full h-full rounded-full shadow-[0_0_8px] ${colorClass} ${isActive || isDown || isDegraded ? 'animate-pulse' : ''} shadow-current`} />
-          </div>
+          <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-zinc-950 ${cfg.dot} ${isActive || isDegraded || isDown ? "animate-pulse" : ""} shadow-lg ${cfg.glow}`} />
         </div>
-        
+
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <h3 className="font-medium text-zinc-100 truncate flex-1 tracking-tight text-lg">{agent.name}</h3>
-            <span className="text-[10px] px-2 py-0.5 rounded uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20 flex-shrink-0 font-mono font-semibold tracking-wider">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-white text-base leading-tight truncate">{agent.name}</h3>
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-md uppercase bg-blue-500/15 text-blue-400 border border-blue-500/25 font-mono font-bold tracking-wider">
               L{agent.level || "0"}
             </span>
           </div>
-          <p className="text-xs text-zinc-400 flex items-center gap-1.5 truncate uppercase tracking-widest font-medium">
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 shadow-[0_0_5px] shadow-current ${colorClass}`}></span>
-            <span className="truncate">{statusText}</span>
+          <p className="text-xs tracking-wide text-zinc-400 flex items-center gap-1.5 uppercase font-medium">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+            {cfg.label}
           </p>
         </div>
       </div>
 
-      <div className="mt-6 mb-4 grid grid-cols-2 gap-3 pb-4 border-b border-white/[0.06]">
-        <div className="bg-black/40 rounded-xl p-3 border border-white/[0.04] flex items-center justify-between group-hover:bg-black/60 transition-colors">
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-1.5"><MessageSquare size={12}/>Msg/24h</span>
-            <span className="text-lg font-light tracking-tight text-white">{agent.messages_24h?.toLocaleString() || 0}</span>
-          </div>
+      {/* Metrics */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="bg-black/40 border border-white/[0.05] rounded-xl p-3">
+          <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">Msg / 24h</p>
+          <p className="text-2xl font-light text-white tracking-tight">
+            {(agent.messages_24h ?? 0).toLocaleString()}
+          </p>
         </div>
-        <div className="bg-black/40 rounded-xl p-3 border border-white/[0.04] flex items-center justify-between group-hover:bg-black/60 transition-colors">
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-widest flex items-center gap-1.5"><Fingerprint size={12}/>Tokens</span>
-            <span className="text-lg font-light tracking-tight text-zinc-300" title={agent.tokens?.toString() || '0'}>
-              {agent.tokens ? (agent.tokens / 1000).toFixed(1) + 'k' : '0'}
-            </span>
-          </div>
+        <div className="bg-black/40 border border-white/[0.05] rounded-xl p-3">
+          <p className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">Tokens</p>
+          <p className="text-2xl font-light text-zinc-300 tracking-tight">
+            {agent.tokens ? (agent.tokens / 1000).toFixed(1) + "k" : "0"}
+          </p>
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center text-[10px] text-zinc-500 font-mono tracking-widest uppercase">
-          <Clock size={12} className="mr-1.5 text-zinc-600 flex-shrink-0" />
-          <span className="truncate">LAST UPDATE: {formatRelativeTime(agent.updated_at || agent.last_seen)}</span>
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-3 border-t border-white/[0.05]">
+        <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-mono uppercase tracking-wider">
+          <Clock size={11} className="text-zinc-600" />
+          {formatRelativeTime(agent.updated_at || agent.last_seen)}
         </div>
-        {agent.errors_24h > 0 && (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 uppercase tracking-wider">
-            <AlertTriangle size={12} /> {agent.errors_24h} ERR
+
+        {(agent.errors_24h ?? 0) > 0 && (
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/25 px-2 py-0.5 rounded-md uppercase tracking-wider">
+            <AlertTriangle size={11} />
+            {agent.errors_24h} erro{agent.errors_24h > 1 ? "s" : ""}
           </div>
         )}
       </div>
-
     </div>
   );
 }
