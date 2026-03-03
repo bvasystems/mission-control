@@ -42,30 +42,38 @@ function ReliabilityTip({ score, meta }: { score?: number; meta?: ReliabilityMet
   );
 }
 
+const LEVEL = {
+  "1": { glow: "#3b82f6", ring: "ring-blue-500/40",    border: "border-blue-500/25",    bg: "bg-blue-500/10"    },
+  "2": { glow: "#6366f1", ring: "ring-indigo-500/40",  border: "border-indigo-500/25",  bg: "bg-indigo-500/10"  },
+  "3": { glow: "#a855f7", ring: "ring-purple-500/40",  border: "border-purple-500/25",  bg: "bg-purple-500/10"  },
+  "4": { glow: "#d946ef", ring: "ring-fuchsia-500/40", border: "border-fuchsia-500/25", bg: "bg-fuchsia-500/10" },
+} as const;
+
 export function AgentCard({ agent }: { agent: AgentWithStats }) {
   const cfg = STATUS[agent.status ?? "idle"] ?? STATUS.idle;
-  const initial = agent.name.charAt(0).toUpperCase();
-  const errors = agent.errors_24h ?? 0;
-  const tokens = agent.tokens ?? 0;
+  const lvl = LEVEL[String(agent.level ?? "1") as keyof typeof LEVEL] ?? LEVEL["1"];
+  const initial  = agent.name.charAt(0).toUpperCase();
+  const errors   = agent.errors_24h ?? 0;
+  const tokens   = agent.tokens ?? 0;
 
   return (
     <div className="relative group">
       {/* ── Compact card (always visible) ── */}
       <div
-        className={`bg-zinc-900/80 border border-white/[0.07] rounded-2xl flex flex-col items-center justify-center text-center p-5 gap-3 cursor-default transition-all duration-200 aspect-square
-          hover:bg-zinc-800/80 hover:border-white/[0.14] hover:shadow-2xl hover:shadow-black/60
-          ring-1 ${cfg.ring}`}
+        className={`bg-zinc-900/80 rounded-2xl flex flex-col items-center justify-center text-center p-5 gap-3 cursor-default transition-all duration-200 aspect-square
+          hover:bg-zinc-800/80 hover:shadow-2xl hover:shadow-black/60
+          border ${lvl.border} ring-1 ${lvl.ring}`}
       >
         {/* Avatar with status glow */}
         <div className="relative">
           {/* Outer ambient glow */}
           <div
-            className="absolute inset-0 rounded-full blur-xl opacity-40"
-            style={{ background: cfg.glow, transform: "scale(1.6)" }}
+            className="absolute inset-0 rounded-full blur-xl opacity-50"
+            style={{ background: lvl.glow, transform: "scale(1.8)" }}
           />
           {/* Avatar circle */}
           <div
-            className={`relative w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-lg ring-2 ${cfg.ring} bg-zinc-800 border border-white/10`}
+            className={`relative w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-lg ring-2 ${lvl.ring} ${lvl.bg} border border-white/10`}
           >
             {initial}
             {/* Status badge */}
