@@ -13,7 +13,10 @@ export async function GET(req: NextRequest) {
     if (projectKey) {
       // Filtered by project_key — ignores board param for cross-board project views
       q = await db.query(
-        `SELECT id, title, status, priority, assigned_to, due_date, board, "column", position, project, risk, project_key
+        `SELECT id, title, status, priority, assigned_to, due_date, board, "column", position, project, risk, project_key,
+                COALESCE(deliverables, '[]'::jsonb) AS deliverables,
+                COALESCE(progress, 0) AS progress,
+                label, created_at
          FROM tasks
          WHERE project_key = $1
          ORDER BY "column" ASC, position ASC, created_at ASC`,
@@ -22,7 +25,10 @@ export async function GET(req: NextRequest) {
     } else {
       // Default: board-scoped (unchanged behaviour)
       q = await db.query(
-        `SELECT id, title, status, priority, assigned_to, due_date, board, "column", position, project, risk, project_key
+        `SELECT id, title, status, priority, assigned_to, due_date, board, "column", position, project, risk, project_key,
+                COALESCE(deliverables, '[]'::jsonb) AS deliverables,
+                COALESCE(progress, 0) AS progress,
+                label, created_at
          FROM tasks
          WHERE board = $1
          ORDER BY "column" ASC, position ASC, created_at ASC`,
