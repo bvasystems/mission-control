@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type TaskStatus = "pending" | "done" | "blocked";
+type TaskStatus = "pending" | "done" | "blocked" | "Backlog" | "Assigned" | "In Progress" | "Review" | "Approved" | "Done" | "Blocked";
 type HealthStatus = "healthy" | "degraded" | "down";
 
 type Task = {
@@ -45,11 +45,19 @@ reliability_score?: number;
 reliability_meta?: ReliabilityMeta;
 };
 
+type TaskCounters = {
+  open: number;
+  blocked: number;
+  done: number;
+  overdue: number;
+};
+
 type StatsPayload = {
 ok: boolean;
 tasks: Array<{ status: TaskStatus }>;
 health: Health[];
 agent_stats: AgentStat[];
+  task_counters?: TaskCounters;
 };
 
 const badge = {
@@ -70,6 +78,7 @@ const [loading, setLoading] = useState(false);
 const [taskList, setTaskList] = useState<Task[]>([]);
 const [healthList, setHealthList] = useState<Health[]>([]);
 const [agentStats, setAgentStats] = useState<AgentStat[]>([]);
+  const [taskCounters, setTaskCounters] = useState<TaskCounters>({ open: 0, blocked: 0, done: 0, overdue: 0 });
 
 async function refresh() {
 const statsRes = await fetch("/api/dashboard/stats", { cache: "no-store" });
@@ -77,6 +86,7 @@ const stats: StatsPayload = await statsRes.json();
 
 setHealthList(stats.health ?? []);
 setAgentStats(stats.agent_stats ?? []);
+    if (stats.task_counters) setTaskCounters(stats.task_counters);
 
 const tasksRes = await fetch("/api/dashboard/tasks", { cache: "no-store" }).catch(() => null);
 if (tasksRes?.ok) {
@@ -111,11 +121,12 @@ body: JSON.stringify({ id, status }),
 await refresh();
 }
 
-const summary = useMemo(() => {
-const counts = { pending: 0, done: 0, blocked: 0 };
-taskList.forEach((t) => counts[t.status]++);
-return counts;
-}, [taskList]);
+  // summary kept for legacy task list section badges
+  const legacyBadge = (status: string): string => {
+    if (status === "done" || status === "Done" || status === "Approved") return badge.done;
+    if (status === "blocked" || status === "Blocked") return badge.blocked;
+    return badge.pending;
+  };
 
 const agentsForDropdown = useMemo(() => {
 const map = new Map<string, AgentStat>();
@@ -165,11 +176,11 @@ return () => { clearTimeout(t1); clearInterval(t2); };
         </header>
 
         {/* KPI cards */}
-        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card title="Pending" value={String(summary.pending)} />
-          <Card title="Done" value={String(summary.done)} />
-          <Card title="Blocked" value={String(summary.blocked)} />
-          <Card title="Health Checks" value={String(healthList.length)} />
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card title="Abertas" value={String(taskCounters.open)} />
+          <Card title="Bloqueadas" value={String(taskCounters.blocked)} isWarn />
+          <Card title="Concluídas" value={String(taskCounters.done)} isGood />
+          <Card title="Atrasadas" value={String(taskCounters.overdue)} isCrit={taskCounters.overdue > 0} />
         </section>
 
         {/* Create task */}
@@ -229,7 +240,7 @@ return () => { clearTimeout(t1); clearInterval(t2); };
                         PRIORITY: <span className={t.priority === 'critical' ? 'text-red-400 font-bold' : 'text-zinc-300'}>{t.priority}</span> • OWNER: <span className="text-zinc-300">{t.assigned_to || "-"}</span>
                       </p>
                     </div>
-                    <span className={`text-[10px] uppercase font-mono tracking-wider border rounded px-2 py-0.5 whitespace-nowrap ${badge[t.status]}`}>
+                    <span className={`text-[10px] uppercase font-mono tracking-wider border rounded px-2 py-0.5 whitespace-nowrap ${legacyBadge(t.status)}`}>
                       {t.status}
                     </span>
                   </div>
@@ -334,12 +345,20 @@ return () => { clearTimeout(t1); clearInterval(t2); };
   );
 }
 
-function Card({ title, value }: { title: string; value: string }) {
+function Card({ title, value, isWarn, isGood, isCrit }: { title: string; value: string; isWarn?: boolean; isGood?: boolean; isCrit?: boolean }) {
+  const barColor = isCrit
+    ? "bg-red-500/50 group-hover:bg-red-400"
+    : isWarn && Number(value) > 0
+    ? "bg-orange-500/50 group-hover:bg-orange-400"
+    : isGood
+    ? "bg-emerald-500/50 group-hover:bg-emerald-400"
+    : "bg-blue-500/50 group-hover:bg-blue-400";
+  const textColor = isCrit && Number(value) > 0 ? "text-red-400" : isWarn && Number(value) > 0 ? "text-orange-400" : isGood ? "text-emerald-300" : "text-zinc-100";
   return (
     <div className="glass rounded-2xl p-5 shadow-xl shadow-black/50 relative overflow-hidden group">
-      <div className="absolute top-0 left-0 w-[2px] h-full bg-blue-500/50 group-hover:bg-blue-400 transition-colors"></div>
+      <div className={`absolute top-0 left-0 w-[2px] h-full transition-colors ${barColor}`}></div>
       <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500 font-medium">{title}</p>
-      <p className="text-3xl font-light tracking-tight mt-2 text-zinc-100">{value}</p>
+      <p className={`text-3xl font-light tracking-tight mt-2 ${textColor}`}>{value}</p>
     </div>
   );
 }
