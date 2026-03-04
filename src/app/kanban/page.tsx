@@ -491,18 +491,18 @@ function KanbanBoard() {
             </div>
           </div>
         ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 h-[calc(100vh-230px)]">
           {COLUMNS.map(col => {
             const count = columns[col.key].length;
             const limit = wipLimits[col.key];
             const overWip = limit > 0 && count > limit;
             return (
               <div key={col.key}
-                className={`glass rounded-xl border flex flex-col min-h-[520px] transition-all duration-200 ${overWip ? "border-orange-500/50" : col.border} ${dragOver === col.key ? "bg-white/[0.03]" : ""}`}
+                className={`glass rounded-xl border flex flex-col min-h-0 h-full transition-all duration-200 ${overWip ? "border-orange-500/50" : col.border} ${dragOver === col.key ? "bg-white/[0.03]" : ""}`}
                 onDragOver={e => onDragOver(e, col.key)} onDrop={e => onDrop(e, col.key)}
               >
                 {/* Column header */}
-                <div className={`p-3 border-b border-white/5 ${overWip ? "bg-orange-500/5" : ""}`}>
+                <div className={`p-3 border-b border-white/5 shrink-0 ${overWip ? "bg-orange-500/5" : ""}`}>
                   <div className="flex items-center justify-between">
                     <p className={`text-[10px] uppercase tracking-widest font-semibold ${overWip ? "text-orange-400" : col.hdr}`}>{col.label}</p>
                     {limit > 0 && (
@@ -521,7 +521,7 @@ function KanbanBoard() {
                     />
                   ))}
                   {count === 0 && (
-                    <div className="flex items-center justify-center h-16 border border-dashed border-white/10 rounded-lg mt-2">
+                    <div className="flex items-center justify-center h-16 border border-dashed border-white/10 rounded-lg mt-2 shrink-0">
                       <p className="text-[10px] text-zinc-700">Drop here</p>
                     </div>
                   )}
