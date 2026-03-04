@@ -5,31 +5,38 @@ import { guardApiRoute } from "@/lib/apiAuth";
 // GET /api/dashboard/tasks/[id]/subtasks -> Lista subtarefas de uma task
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authError = await guardApiRoute(req);
     if (authError) return authError;
 
+    const { id } = await context.params;
+
     const res = await db.query(
       `SELECT * FROM task_subtasks WHERE task_id = $1 ORDER BY created_at ASC`,
-      [params.id]
+      [id]
     );
 
     return NextResponse.json({ ok: true, data: res.rows });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: false, error: "Unknown error" }, { status: 500 });
   }
 }
 
 // POST /api/dashboard/tasks/[id]/subtasks -> Cria subtarefa
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authError = await guardApiRoute(req);
     if (authError) return authError;
+
+    const { id } = await context.params;
 
     const body = await req.json();
     const { title, owner } = body;
@@ -40,12 +47,15 @@ export async function POST(
 
     const res = await db.query(
       `INSERT INTO task_subtasks (task_id, title, owner) VALUES ($1, $2, $3) RETURNING *`,
-      [params.id, title.trim(), owner || null]
+      [id, title.trim(), owner || null]
     );
 
     return NextResponse.json({ ok: true, data: res.rows[0] });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: false, error: "Unknown error" }, { status: 500 });
   }
 }
 

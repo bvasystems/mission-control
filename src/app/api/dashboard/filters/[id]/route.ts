@@ -5,20 +5,25 @@ import { guardApiRoute } from "@/lib/apiAuth";
 // DELETE /api/dashboard/filters/[id]
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authError = await guardApiRoute(req);
     if (authError) return authError;
 
-    const res = await db.query(`DELETE FROM saved_filters WHERE id = $1`, [params.id]);
+    const { id } = await context.params;
+
+    const res = await db.query(`DELETE FROM saved_filters WHERE id = $1`, [id]);
 
     if (res.rowCount === 0) {
       return NextResponse.json({ ok: false, error: "Filter não encontrado" }, { status: 404 });
     }
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: false, error: "Unknown error" }, { status: 500 });
   }
 }
