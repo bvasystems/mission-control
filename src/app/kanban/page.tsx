@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type TaskType = "n8n" | "code" | "bug" | "improvement";
@@ -47,6 +48,12 @@ const U_BADGE: Record<string, string> = {
 const INPUT = "w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 transition-colors";
 const DEFAULT_WIP: Record<KanbanColumn, number> = { backlog: 0, assigned: 5, in_progress: 3, review: 4, approved: 10, done: 0, blocked: 0 };
 
+const STATUS_MAP: Record<string, string> = {
+  pending: "Backlog", backlog: "Backlog", assigned: "Assigned",
+  in_progress: "In Progress", review: "Review", validation: "Review",
+  approved: "Approved", done: "Done", blocked: "Blocked",
+};
+
 // ── Suspense wrapper ─────────────────────────────────────────────────────────
 export default function KanbanPage() {
   return (
@@ -60,6 +67,8 @@ export default function KanbanPage() {
 function KanbanBoard() {
   const sp = useSearchParams();
   const projectKey = sp.get("project_key");
+  const { data: session } = useSession();
+  const userName = session?.user?.name || "Operador";
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
@@ -95,7 +104,6 @@ function KanbanBoard() {
   const [newUpdateType, setNewUpdateType] = useState<UpdateType>("UPDATE");
   const [newUpdateMsg, setNewUpdateMsg] = useState("");
   const [newUpdateProgress, setNewUpdateProgress] = useState("");
-  const [newUpdateAuthor, setNewUpdateAuthor] = useState("operador");
   const [submittingUpdate, setSubmittingUpdate] = useState(false);
   const [newEvType, setNewEvType] = useState<EvidenceType>("link");
   const [newEvContent, setNewEvContent] = useState("");
@@ -112,7 +120,13 @@ function KanbanBoard() {
     try {
       const url = projectKey ? `/api/dashboard/tasks?project_key=${projectKey}` : "/api/dashboard/tasks";
       const j = await fetch(url, { cache: "no-store" }).then(r => r.json());
-      setTasks(j.data ?? []);
+      const allTasks: Task[] = j.data ?? [];
+      const uniq = new Map<string, Task>();
+      for (const t of allTasks) {
+        if (!t.dem_id || !t.dem_id.startsWith("DEM-")) continue;
+        if (!uniq.has(t.id)) uniq.set(t.id, t);
+      }
+      setTasks(Array.from(uniq.values()));
     } finally { setLoading(false); }
   }, [projectKey]);
 
@@ -121,7 +135,10 @@ function KanbanBoard() {
   // unique owners/types for filter dropdowns
   const owners = useMemo(() => [...new Set(tasks.map(t => t.owner).filter(Boolean))] as string[], [tasks]);
 
-  const isOverdue = (t: Task) => !!(t.due_date && new Date(t.due_date) < new Date() && t.status !== "Done" && t.status !== "Approved");
+  const isOverdue = (t: Task) => {
+    const norm = STATUS_MAP[t.status?.toLowerCase()] || t.status;
+    return !!(t.due_date && new Date(t.due_date) < new Date() && norm !== "Done" && norm !== "Approved");
+  };
 
   // filtered + grouped
   const columns = useMemo(() => {
@@ -165,7 +182,7 @@ function KanbanBoard() {
     try {
       const res = await fetch(`/api/dashboard/tasks/${quickTask.id}/updates`, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ update_type: quickType, message: quickMsg.trim(), author: "operador" }),
+        body: JSON.stringify({ update_type: quickType, message: quickMsg.trim(), author: userName }),
       });
       const j = await res.json();
       if (!res.ok) { setError(j.error ?? "Erro no quick action."); return; }
@@ -192,12 +209,18 @@ function KanbanBoard() {
   function closeTask() { setSelectedTask(null); setTaskUpdates([]); setTaskEvidences([]); setNewUpdateMsg(""); setNewEvContent(""); setNewEvNote(""); setError(null); }
 
   async function submitUpdate() {
+    const isUpdate = newUpdateType === "UPDATE";
     if (!selectedTask || !newUpdateMsg.trim()) return;
+    if (isUpdate && !newUpdateProgress) {
+        setError("O progresso (%) é obrigatório para o tipo UPDATE.");
+        return;
+    }
+
     setSubmittingUpdate(true); setError(null);
     try {
       const res = await fetch(`/api/dashboard/tasks/${selectedTask.id}/updates`, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ update_type: newUpdateType, message: newUpdateMsg.trim(), progress: newUpdateProgress ? Number(newUpdateProgress) : undefined, author: newUpdateAuthor || "operador" }),
+        body: JSON.stringify({ update_type: newUpdateType, message: newUpdateMsg.trim(), progress: newUpdateProgress ? Number(newUpdateProgress) : undefined, author: userName }),
       });
       const j = await res.json();
       if (!res.ok) { setError(j.error ?? "Erro ao registrar update."); return; }
@@ -411,7 +434,6 @@ function KanbanBoard() {
           newUpdateType={newUpdateType} setNewUpdateType={setNewUpdateType}
           newUpdateMsg={newUpdateMsg} setNewUpdateMsg={setNewUpdateMsg}
           newUpdateProgress={newUpdateProgress} setNewUpdateProgress={setNewUpdateProgress}
-          newUpdateAuthor={newUpdateAuthor} setNewUpdateAuthor={setNewUpdateAuthor}
           submittingUpdate={submittingUpdate} onSubmitUpdate={submitUpdate}
           newEvType={newEvType} setNewEvType={setNewEvType}
           newEvContent={newEvContent} setNewEvContent={setNewEvContent}
@@ -508,7 +530,6 @@ type ModalProps = {
   newUpdateType: UpdateType; setNewUpdateType: (v: UpdateType) => void;
   newUpdateMsg: string; setNewUpdateMsg: (v: string) => void;
   newUpdateProgress: string; setNewUpdateProgress: (v: string) => void;
-  newUpdateAuthor: string; setNewUpdateAuthor: (v: string) => void;
   submittingUpdate: boolean; onSubmitUpdate: () => void;
   newEvType: EvidenceType; setNewEvType: (v: EvidenceType) => void;
   newEvContent: string; setNewEvContent: (v: string) => void;
@@ -538,7 +559,7 @@ function TaskModal(p: ModalProps) {
               <span className="text-[10px] font-mono text-indigo-400">{t.dem_id ?? "DEM-?"}</span>
               {t.type && <span className={`text-[8px] font-mono uppercase border rounded px-1.5 py-0.5 ${T_BADGE[t.type] ?? ""}`}>{t.type}</span>}
               <span className={`text-[8px] font-mono uppercase border rounded px-1.5 py-0.5 ${P_BADGE[t.priority] ?? ""}`}>{t.priority}</span>
-              <span className="text-[9px] text-zinc-500 uppercase tracking-wider">{t.status}</span>
+              <span className="text-[9px] text-zinc-500 uppercase tracking-wider">{STATUS_MAP[t.status?.toLowerCase()] || t.status}</span>
               {noEvidence && <span className="text-[8px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded px-1.5 py-0.5 font-mono animate-pulse">⚠ SEM EVIDÊNCIA</span>}
             </div>
             <h2 className="text-lg font-semibold text-zinc-100 leading-snug">{t.title}</h2>
@@ -596,12 +617,9 @@ function TaskModal(p: ModalProps) {
                 ))}
               </div>
               <div className="flex gap-2">
-                <input value={p.newUpdateAuthor} onChange={e => p.setNewUpdateAuthor(e.target.value)} placeholder="Autor" className="w-20 bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500/50" />
-                <input value={p.newUpdateProgress} onChange={e => p.setNewUpdateProgress(e.target.value)} type="number" min={0} max={100} placeholder="%" className="w-14 bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500/50" />
-              </div>
-              <div className="flex gap-2">
+                <input value={p.newUpdateProgress} onChange={e => p.setNewUpdateProgress(e.target.value)} type="number" min={0} max={100} placeholder="Progresso %" className="w-28 bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500/50" />
                 <textarea value={p.newUpdateMsg} onChange={e => p.setNewUpdateMsg(e.target.value)} placeholder="Mensagem..." rows={2} className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 resize-none" />
-                <button onClick={p.onSubmitUpdate} disabled={p.submittingUpdate || !p.newUpdateMsg.trim()} className="bg-blue-600/80 hover:bg-blue-500 text-white rounded-lg px-3 text-xs font-medium disabled:opacity-50 transition-colors self-stretch">
+                <button onClick={p.onSubmitUpdate} disabled={p.submittingUpdate || !p.newUpdateMsg.trim() || (p.newUpdateType === "UPDATE" && !p.newUpdateProgress)} className="bg-blue-600/80 hover:bg-blue-500 text-white rounded-lg px-3 text-xs font-medium disabled:opacity-50 transition-colors self-stretch">
                   {p.submittingUpdate ? "..." : "Enviar"}
                 </button>
               </div>
