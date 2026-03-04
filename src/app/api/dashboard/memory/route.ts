@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 
 const schema = z.object({
-  content: z.string().min(5),
-  category: z.enum(['decision', 'lesson', 'insight']),
-  source: z.enum(['main', 'heartbeat', 'cron']).default('main'),
+  content:  z.string().min(1),
+  category: z.enum(['decision', 'lesson', 'insight', 'command']),
+  source:   z.enum(['main', 'heartbeat', 'cron', 'neural_pulse']).default('main'),
+  target:   z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
