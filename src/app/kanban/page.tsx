@@ -8,9 +8,12 @@ import { useSession } from "next-auth/react";
 type TaskType = "n8n" | "code" | "bug" | "improvement";
 type UpdateType = "ACK" | "UPDATE" | "BLOCKED" | "DONE";
 type EvidenceType = "print" | "log" | "link";
+type Subtask = { id: string; title: string; status: "todo"|"doing"|"done"; owner?: string; };
 type KanbanColumn = "backlog" | "assigned" | "in_progress" | "review" | "approved" | "done" | "blocked";
 
 type Task = {
+  subtasks_total?: string | number;
+  subtasks_done?: string | number;
   id: string; dem_id?: string | null; title: string; objective?: string | null;
   type?: TaskType | null; priority: string; status: string; column: KanbanColumn;
   position: number; owner?: string | null; assigned_to?: string | null;
@@ -87,6 +90,32 @@ function KanbanBoard() {
   const [wipLimits, setWipLimits] = useState<Record<KanbanColumn, number>>(DEFAULT_WIP);
   const [showWip, setShowWip] = useState(false);
 
+  // subtasks state
+  const [taskSubtasks, setTaskSubtasks] = useState<Subtask[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const [submittingSubtask, setSubmittingSubtask] = useState(false);
+  
+  // saved filters
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [savedFilters, setSavedFilters] = useState<{id:string, name:string, filters:any}[]>([]);
+  const [viewMode, setViewMode] = useState<"kanban" | "sprint" | "report">("kanban");
+  type ReportData = { created7d: number, done7d: number, throughput: number, blockedPercent: number, bottlenecks: Task[] };
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+
+  useEffect(() => {
+    if (userName) {
+      fetch(`/api/dashboard/filters?owner=${encodeURIComponent(userName)}`)
+        .then(r => r.json())
+        .then(j => { if (j.ok) setSavedFilters(j.data); });
+    }
+  }, [userName]);
+
+  const loadReport = async () => {
+    setViewMode("report");
+    const r = await fetch("/api/dashboard/weekly-report").then(x=>x.json());
+    if (r.ok) setReportData(r.data);
+  };
+  
   // evidence count cache (lazy – populated on modal open)
   const [evCounts, setEvCounts] = useState<Record<string, number>>({});
 
@@ -112,7 +141,7 @@ function KanbanBoard() {
 
   // create task modal
   const [showNew, setShowNew] = useState(false);
-  const [newTask, setNewTask] = useState({ title: "", objective: "", type: "code" as TaskType, priority: "P1", owner: "", supporter: "", due_date: "", acceptance_criteria: "" });
+  const [newTask, setNewTask] = useState<NewTaskState>({ title: "", objective: "", type: "code", priority: "P1", owner: "", supporter: "", due_date: "", acceptance_criteria: "", subtasks: [] });
   const [creatingTask, setCreatingTask] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -200,13 +229,16 @@ function KanbanBoard() {
         fetch(`/api/dashboard/tasks/${task.id}/evidences`, { cache: "no-store" }).then(r => r.json()),
       ]);
       setTaskUpdates(up.data ?? []);
+      const subs = await fetch(`/api/dashboard/tasks/${task.id}/subtasks`).then(r=>r.json());
+      setTaskSubtasks(subs.data ?? []);
       const evs: Evidence[] = ev.data ?? [];
       setTaskEvidences(evs);
       setEvCounts(prev => ({ ...prev, [task.id]: evs.length }));
     } finally { setModalLoading(false); }
   }
 
-  function closeTask() { setSelectedTask(null); setTaskUpdates([]); setTaskEvidences([]); setNewUpdateMsg(""); setNewEvContent(""); setNewEvNote(""); setError(null); }
+  function closeTask() {
+    setTaskSubtasks([]); setSelectedTask(null); setTaskUpdates([]); setTaskEvidences([]); setNewUpdateMsg(""); setNewEvContent(""); setNewEvNote(""); setError(null); }
 
   async function submitUpdate() {
     const isUpdate = newUpdateType === "UPDATE";
@@ -228,6 +260,32 @@ function KanbanBoard() {
       const [up] = await Promise.all([fetch(`/api/dashboard/tasks/${selectedTask.id}/updates`, { cache: "no-store" }).then(r => r.json()), refresh()]);
       setTaskUpdates(up.data ?? []);
     } finally { setSubmittingUpdate(false); }
+  }
+
+  async function submitSubtask() {
+    if (!selectedTask || !newSubtaskTitle.trim()) return;
+    setSubmittingSubtask(true);
+    try {
+      const res = await fetch(`/api/dashboard/tasks/${selectedTask.id}/subtasks`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: newSubtaskTitle.trim(), owner: userName }),
+      });
+      const j = await res.json();
+      if (res.ok) {
+        setTaskSubtasks(prev => [...prev, j.data]);
+        setNewSubtaskTitle("");
+      }
+    } finally { setSubmittingSubtask(false); }
+  }
+
+  async function updateSubtaskStatus(subId: string, status: string) {
+    if (!selectedTask) return;
+    setTaskSubtasks(prev => prev.map(s => s.id === subId ? { ...s, status: status as "todo"|"doing"|"done" } : s));
+    await fetch(`/api/dashboard/tasks/${selectedTask.id}/subtasks/${subId}`, {
+      method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status })
+    });
+    refresh();
   }
 
   async function submitEvidence() {
@@ -255,7 +313,7 @@ function KanbanBoard() {
       const res = await fetch("/api/dashboard/tasks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...newTask, project_key: projectKey ?? undefined, due_date: newTask.due_date || undefined, supporter: newTask.supporter || undefined }) });
       const j = await res.json();
       if (!res.ok) { setError(j.error ?? "Erro ao criar tarefa."); return; }
-      setShowNew(false); setNewTask({ title: "", objective: "", type: "code", priority: "P1", owner: "", supporter: "", due_date: "", acceptance_criteria: "" });
+      setShowNew(false); setNewTask({ title: "", objective: "", type: "code", priority: "P1", owner: "", supporter: "", due_date: "", acceptance_criteria: "", subtasks: [] });
       await refresh();
     } finally { setCreatingTask(false); }
   }
@@ -285,6 +343,11 @@ function KanbanBoard() {
               Filtros {activeFilters > 0 && <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-indigo-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold">{activeFilters}</span>}
             </button>
             {/* WIP */}
+            <div className="flex items-center gap-1 border-r border-zinc-800 pr-2 mr-1">
+              <button onClick={() => setViewMode("kanban")} className={`px-2 py-1 text-xs rounded ${viewMode === "kanban" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>Kanban</button>
+              <button onClick={() => setViewMode("sprint")} className={`px-2 py-1 text-xs rounded ${viewMode === "sprint" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>Sprint</button>
+              <button onClick={loadReport} className={`px-2 py-1 text-xs rounded ${viewMode === "report" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>Report</button>
+            </div>
             <button onClick={() => setShowWip(v => !v)} className={`border rounded-lg px-3 py-1.5 text-xs transition-colors ${showWip ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-300" : "border-zinc-700 text-zinc-400 hover:bg-white/[0.04]"}`}>WIP</button>
             <button onClick={refresh} disabled={loading} className="border border-zinc-700 text-zinc-400 rounded-lg px-3 py-1.5 text-xs hover:bg-white/[0.04] disabled:opacity-50 transition-colors">{loading ? "..." : "↻"}</button>
             <button onClick={() => setShowNew(true)} className="border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 rounded-lg px-3 py-1.5 text-xs font-medium hover:bg-indigo-500/20 transition-colors">+ Nova Demanda</button>
@@ -307,6 +370,19 @@ function KanbanBoard() {
               {["code", "n8n", "bug", "improvement"].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             {activeFilters > 0 && <button onClick={() => { setSearch(""); setFilterOwner(""); setFilterPriority(""); setFilterType(""); }} className="text-xs text-red-400 hover:text-red-300 transition-colors">✕ Limpar filtros</button>}
+            {savedFilters.length > 0 && (
+              <select onChange={e => {
+                const f = savedFilters.find(x => x.id === e.target.value);
+                if (f && f.filters) {
+                  const o = f.filters as Record<string, string>;
+                  setSearch(o.search || ""); setFilterOwner(o.owner || "");
+                  setFilterPriority(o.priority || ""); setFilterType(o.type || "");
+                }
+              }} className="ml-auto bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2 py-1.5 text-xs text-indigo-300">
+                <option value="">Filtros Salvos...</option>
+                {savedFilters.map(sf => <option key={sf.id} value={sf.id}>{sf.name}</option>)}
+              </select>
+            )}
           </div>
         )}
 
@@ -359,6 +435,62 @@ function KanbanBoard() {
         </div>
 
         {/* ── Main board ── */}
+        {viewMode === "report" ? (
+          <div className="glass rounded-xl border border-white/10 p-6 space-y-6">
+            <h2 className="text-xl font-semibold mb-4 text-indigo-400">Relatório Automático (MVP 7d)</h2>
+            {!reportData ? <p>Carregando...</p> : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-zinc-900 border border-zinc-700 p-4 rounded-xl">
+                    <p className="text-[10px] uppercase text-zinc-500">Dem. Criadas</p>
+                    <p className="text-2xl font-light text-zinc-200">{String(reportData.created7d ?? 0)}</p>
+                  </div>
+                  <div className="bg-zinc-900 border border-zinc-700 p-4 rounded-xl">
+                    <p className="text-[10px] uppercase text-zinc-500">Dem. Concluídas</p>
+                    <p className="text-2xl font-light text-zinc-200">{String(reportData.done7d ?? 0)}</p>
+                  </div>
+                  <div className="bg-zinc-900 border border-zinc-700 p-4 rounded-xl">
+                    <p className="text-[10px] uppercase text-zinc-500">Throughput</p>
+                    <p className="text-2xl font-light text-zinc-200">{String(reportData.throughput ?? 0)} / semana</p>
+                  </div>
+                  <div className="bg-zinc-900 border border-zinc-700 p-4 rounded-xl">
+                    <p className="text-[10px] uppercase text-zinc-500">Gargalo / Bloqueio</p>
+                    <p className="text-2xl font-light text-orange-400">{String(reportData.blockedPercent ?? 0)}%</p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm border-b border-zinc-800 pb-2 mb-2">Principais DEMs Bloqueadas</h3>
+                  {reportData.bottlenecks && Array.isArray(reportData.bottlenecks) && reportData.bottlenecks.length === 0 && <p className="text-xs text-zinc-500">Sem demandas em bottleneck aberto.</p>}
+                  {(reportData.bottlenecks as Task[])?.map((b) => (
+                    <div key={b.dem_id || b.id} className="text-xs flex gap-2 p-2 border-b border-zinc-800 last:border-0">
+                      <span className="text-red-400 font-mono">{b.dem_id}</span>
+                      <span className="text-zinc-300">{b.title}</span>
+                      <span className="text-zinc-500">@{b.owner}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : viewMode === "sprint" ? (
+           <div className="glass rounded-xl border border-white/10 p-6 w-full">
+            <h2 className="text-xl font-semibold mb-4 text-emerald-400">Visão de Sprint</h2>
+            <div className="flex gap-4 p-4 bg-zinc-900 rounded-xl">
+               <div className="flex-1">
+                 <p className="text-zinc-500 text-xs">Aberto (Planejado)</p>
+                 <p className="text-xl font-light">{columns.backlog.length + columns.assigned.length + columns.in_progress.length + columns.review.length + columns.approved.length}</p>
+               </div>
+               <div className="flex-1">
+                 <p className="text-emerald-500 text-xs">Entregue (Done)</p>
+                 <p className="text-xl font-light">{columns.done.length}</p>
+               </div>
+               <div className="flex-1">
+                 <p className="text-red-500 text-xs">Bloqueado</p>
+                 <p className="text-xl font-light">{columns.blocked.length}</p>
+               </div>
+            </div>
+          </div>
+        ) : (
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           {COLUMNS.map(col => {
             const count = columns[col.key].length;
@@ -398,6 +530,7 @@ function KanbanBoard() {
             );
           })}
         </div>
+        )}
       </div>
 
       {/* Quick action drawer */}
@@ -431,6 +564,9 @@ function KanbanBoard() {
       {selectedTask && (
         <TaskModal task={selectedTask} updates={taskUpdates} evidences={taskEvidences} loading={modalLoading} error={error}
           onClose={closeTask}
+          subtasks={taskSubtasks} submittingSubtask={submittingSubtask}
+          newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
+          onSubmitSubtask={submitSubtask} onUpdateSubtaskStatus={updateSubtaskStatus}
           newUpdateType={newUpdateType} setNewUpdateType={setNewUpdateType}
           newUpdateMsg={newUpdateMsg} setNewUpdateMsg={setNewUpdateMsg}
           newUpdateProgress={newUpdateProgress} setNewUpdateProgress={setNewUpdateProgress}
@@ -482,6 +618,11 @@ function TaskCard({ task: t, onDragStart, onClick, isOverdue, evCount, onQuickAc
       <div className="flex items-center gap-1.5 flex-wrap" onClick={onClick}>
         <span className={`text-[8px] font-mono uppercase border rounded px-1 py-0.5 ${P_BADGE[t.priority] ?? ""}`}>{t.priority}</span>
         {t.owner && <span className="text-[8px] text-zinc-500">@{t.owner}</span>}
+        {(t.subtasks_total as number) > 0 && (
+          <span className="text-[8px] font-mono text-indigo-400">
+            {t.subtasks_done}/{t.subtasks_total} subs ({Math.round((Number(t.subtasks_done)/Number(t.subtasks_total))*100)}%)
+          </span>
+        )}
         {t.due_date && (
           <span className={`text-[8px] font-mono ml-auto ${isOverdue ? "text-red-400 font-bold" : "text-zinc-600"}`}>
             {isOverdue ? "⚠ " : "📅 "}{new Date(t.due_date).toLocaleDateString("pt-BR")}
@@ -527,6 +668,8 @@ function TaskCard({ task: t, onDragStart, onClick, isOverdue, evCount, onQuickAc
 // ── Task Modal (2-col layout) ──────────────────────────────────────────────────
 type ModalProps = {
   task: Task; updates: TaskUpdate[]; evidences: Evidence[]; loading: boolean; error: string | null; onClose: () => void;
+  subtasks: Subtask[]; submittingSubtask: boolean; newSubtaskTitle: string; setNewSubtaskTitle: (v: string) => void;
+  onSubmitSubtask: () => void; onUpdateSubtaskStatus: (id: string, s: string) => void;
   newUpdateType: UpdateType; setNewUpdateType: (v: UpdateType) => void;
   newUpdateMsg: string; setNewUpdateMsg: (v: string) => void;
   newUpdateProgress: string; setNewUpdateProgress: (v: string) => void;
@@ -587,6 +730,28 @@ function TaskModal(p: ModalProps) {
                 {t.supporter && <MF label="Supporter" value={t.supporter} />}
                 {t.due_date && <MF label="Due Date" value={new Date(t.due_date).toLocaleDateString("pt-BR")} />}
                 {t.acceptance_criteria && <MF label="Critérios de Aceite" value={t.acceptance_criteria} full />}
+              </div>
+
+              {/* Subtasks */}
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">Subtasks ({p.subtasks.filter(s => s.status === 'done').length}/{p.subtasks.length})</p>
+                <div className="space-y-1.5 mb-2">
+                  {p.subtasks.map(s => (
+                    <div key={s.id} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs">
+                      <select value={s.status} onChange={e => p.onUpdateSubtaskStatus(s.id, e.target.value)}
+                        className={`bg-black/20 text-[10px] font-mono border rounded px-1 min-w-[60px] cursor-pointer outline-none ${s.status==='done'?'text-emerald-400 border-emerald-500/30':s.status==='doing'?'text-blue-400 border-blue-500/30':'text-zinc-500 border-zinc-700'}`}>
+                        <option value="todo">TODO</option>
+                        <option value="doing">DOING</option>
+                        <option value="done">DONE</option>
+                      </select>
+                      <span className={`flex-1 truncate ${s.status==='done'?'line-through text-zinc-500':'text-zinc-300'}`}>{s.title}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input value={p.newSubtaskTitle} onChange={e => p.setNewSubtaskTitle(e.target.value)} placeholder="Nova subtask..." onKeyDown={e => { if (e.key === 'Enter') p.onSubmitSubtask(); }} className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50" />
+                  <button onClick={p.onSubmitSubtask} disabled={p.submittingSubtask || !p.newSubtaskTitle.trim()} className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 rounded-lg px-3 py-1 text-xs font-medium disabled:opacity-50 transition-colors">Adicionar</button>
+                </div>
               </div>
 
               {/* Updates timeline */}
@@ -685,11 +850,28 @@ function MF({ label, value, full }: { label: string; value: string; full?: boole
   );
 }
 
-type NewTaskState = { title: string; objective: string; type: TaskType; priority: string; owner: string; supporter: string; due_date: string; acceptance_criteria: string; };
+type NewTaskState = { title: string; objective: string; type: TaskType; priority: string; owner: string; supporter: string; due_date: string; acceptance_criteria: string; subtasks: string[] };
+
+const PRESET_TEMPLATES: Record<string, Partial<NewTaskState>> = {
+  limpo: { title: "", objective: "", type: "code", priority: "P1", acceptance_criteria: "", subtasks: [] },
+  n8n: { title: "[n8n] ", objective: "Criar ou ajustar workflow no n8n...", type: "n8n", priority: "P1", acceptance_criteria: "- Fluxo executa path feliz\n- Erros tratados", subtasks: ["Desenhar path feliz", "Tratar path de erro", "Publicar"] },
+  code: { title: "[Feature] ", objective: "Implementar funcionalidade...", type: "code", priority: "P1", acceptance_criteria: "- Atende aos requisitos\n- Nenhum console error", subtasks: ["Implementar core", "Validar e iterar", "Revisão de código"] },
+  bug: { title: "[BUG] ", objective: "Corrigir erro onde...", type: "bug", priority: "P0", acceptance_criteria: "- Erro principal não ocorre mais\n- Causa raiz identificada e resolvida", subtasks: ["Reproduzir bug", "Implementar correção", "Validar"] },
+  improvement: { title: "[Melhoria] ", objective: "Otimizar funcionalidade...", type: "improvement", priority: "P2", acceptance_criteria: "- UX/Perf melhorada\n- Sem regressões", subtasks: ["Identificar melhorias", "Aplicar ajustes", "Validar"] }
+};
+
 function NewTaskModal({ task, setTask, submitting, error, onClose, onSubmit }: { task: NewTaskState; setTask: (t: NewTaskState) => void; submitting: boolean; error: string | null; onClose: () => void; onSubmit: () => void; }) {
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
   const set = (k: keyof NewTaskState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setTask({ ...task, [k]: e.target.value });
   const ok = task.title.trim() && task.objective.trim() && task.owner.trim() && task.acceptance_criteria.trim();
+  
+  const applyTemplate = (key: string) => {
+    if (key && PRESET_TEMPLATES[key]) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setTask({ ...task, ...PRESET_TEMPLATES[key] as any });
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-xl" onClick={e => e.stopPropagation()}>
@@ -699,6 +881,16 @@ function NewTaskModal({ task, setTask, submitting, error, onClose, onSubmit }: {
         </div>
         <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
           {error && <div className="bg-red-500/10 border border-red-500/40 rounded-xl p-3 text-sm text-red-300">⚠ {error}</div>}
+          <div className="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl flex gap-3 items-center">
+            <span className="text-xs text-indigo-300">Aplicar Template:</span>
+            <select onChange={(e) => applyTemplate(e.target.value)} className="bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1 text-xs text-zinc-200 outline-none">
+               <option value="limpo">Limpo (Em branco)</option>
+               <option value="n8n">n8n Workflow</option>
+               <option value="code">Code / Feature</option>
+               <option value="bug">Bug Fix</option>
+               <option value="improvement">Melhoria</option>
+            </select>
+          </div>
           <F label="Título *"><input value={task.title} onChange={set("title")} placeholder="Ex: Revisar cron watchdog" className={INPUT} /></F>
           <F label="Objetivo *"><textarea value={task.objective} onChange={set("objective")} rows={2} placeholder="O que essa demanda resolve..." className={INPUT + " resize-none"} /></F>
           <div className="grid grid-cols-2 gap-3">
