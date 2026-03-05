@@ -26,6 +26,7 @@ const patchSchema = z.object({
   project_key:         z.string().optional(),
   "column":            z.string().optional(),
   position:            z.number().int().min(0).optional(),
+  is_archived:         z.boolean().optional(),
 });
 
 // Official status → column mapping
@@ -99,6 +100,7 @@ export async function PATCH(
   if (d.deliverables        !== undefined) push("deliverables", JSON.stringify(d.deliverables));
   if (d.label               !== undefined) push("label", d.label);
   if (d.project_key         !== undefined) push("project_key", d.project_key);
+  if (d.is_archived         !== undefined) push("is_archived", d.is_archived);
 
   // Status drives column (and vice-versa)
   if (d.status !== undefined) {

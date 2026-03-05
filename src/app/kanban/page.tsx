@@ -148,6 +148,9 @@ function KanbanBoard() {
   const [newTask, setNewTask] = useState<NewTaskState>({ title: "", objective: "", type: "code", priority: "P1", owner: "", supporter: "", due_date: "", acceptance_criteria: "", subtasks: [] });
   const [creatingTask, setCreatingTask] = useState(false);
 
+  // blocked modal
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -257,6 +260,24 @@ function KanbanBoard() {
 
   function closeTask() {
     setTaskSubtasks([]); setSelectedTask(null); setTaskUpdates([]); setTaskEvidences([]); setNewUpdateMsg(""); setNewEvContent(""); setNewEvNote(""); setError(null); }
+
+  async function archiveTask(id: string) {
+    if(!confirm("Deseja mesmo arquivar esta demanda? Ela sairá do board.")) return;
+    try {
+      await fetch(`/api/dashboard/tasks/${id}`, { method: "PATCH", headers: {"content-type": "application/json"}, body: JSON.stringify({ is_archived: true }) });
+      closeTask();
+      refresh();
+    } catch(err) { setError(String(err)); }
+  }
+
+  async function deleteTask(id: string) {
+    if(!confirm("Atenção: A exclusão é irreversível! Deseja apagar essa demanda?")) return;
+    try {
+      await fetch(`/api/dashboard/tasks/${id}`, { method: "DELETE" });
+      closeTask();
+      refresh();
+    } catch(err) { setError(String(err)); }
+  }
 
   async function submitUpdate() {
     const isUpdate = newUpdateType === "UPDATE";
@@ -500,26 +521,25 @@ function KanbanBoard() {
           </div>
         )}
 
-        {/* ── Blocked lane ── */}
+        {/* ── Blocked lane (Compact) ── */}
         <div
-          className={`glass rounded-xl border ${BLOCKED_COL.border} p-3 transition-all duration-200 ${dragOver === "blocked" ? "bg-red-500/10 border-red-500/60" : ""}`}
+          onClick={() => { if(columns.blocked.length > 0) setShowBlockedModal(true); }}
+          className={`glass rounded-xl border ${BLOCKED_COL.border} px-4 py-3 flex items-center justify-between transition-all duration-200 ${columns.blocked.length > 0 ? "cursor-pointer hover:bg-red-500/5 hover:border-red-500/40" : "opacity-50"} ${dragOver === "blocked" ? "bg-red-500/10 border-red-500/60" : ""}`}
           onDragOver={e => onDragOver(e, "blocked")} onDrop={e => onDrop(e, "blocked")}
         >
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
-            <p className="text-[10px] uppercase tracking-widest text-red-400 font-semibold">Blocked ({columns.blocked.length})</p>
+          <div className="flex items-center gap-3">
+            <span className={`w-2.5 h-2.5 rounded-full bg-red-500 ${columns.blocked.length > 0 ? "shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" : ""}`} />
+            <div>
+              <p className="text-[11px] uppercase tracking-widest text-red-400 font-semibold mb-0.5">Demandas Bloqueadas</p>
+              <p className="text-xs text-zinc-500">{columns.blocked.length === 0 ? "Nenhum bloqueio ativo no momento." : "Items travados aguardando desbloqueio."}</p>
+            </div>
           </div>
-          <div className="flex gap-2 flex-wrap min-h-[32px]">
-            {columns.blocked.map(t => (
-              <div key={t.id} draggable onDragStart={e => onDragStart(e, t.id)} onClick={() => openTask(t)}
-                className="cursor-pointer bg-red-500/10 border border-red-500/20 rounded-lg px-2.5 py-1.5 text-xs text-red-300 hover:bg-red-500/20 hover:border-red-500/40 transition-colors flex items-center gap-1.5">
-                <span className="font-mono text-[9px] text-red-500/70">{t.dem_id ?? t.id.slice(0, 8)}</span>
-                <span className="truncate max-w-[120px]">{t.title}</span>
-                <span className={`font-mono text-[8px] border rounded px-1 ${P_BADGE[t.priority] ?? ""}`}>{t.priority}</span>
-              </div>
-            ))}
-            {columns.blocked.length === 0 && <p className="text-[11px] text-zinc-600 italic self-center">Sem bloqueios ativos.</p>}
-          </div>
+          {columns.blocked.length > 0 && (
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-red-300 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full">{columns.blocked.length} bloqueada(s)</span>
+              <span className="text-zinc-500 text-xs hidden sm:inline">Ver demandas ➔</span>
+            </div>
+          )}
         </div>
 
         {/* ── Main board ── */}
@@ -652,6 +672,7 @@ function KanbanBoard() {
       {selectedTask && (
         <TaskModal task={selectedTask} updates={taskUpdates} evidences={taskEvidences} loading={modalLoading} error={error}
           onClose={closeTask}
+          onArchive={archiveTask} onDelete={deleteTask}
           subtasks={taskSubtasks} submittingSubtask={submittingSubtask}
           newSubtaskTitle={newSubtaskTitle} setNewSubtaskTitle={setNewSubtaskTitle}
           onSubmitSubtask={submitSubtask} onUpdateSubtaskStatus={updateSubtaskStatus}
@@ -664,6 +685,32 @@ function KanbanBoard() {
           newEvNote={newEvNote} setNewEvNote={setNewEvNote}
           submittingEv={submittingEv} onSubmitEv={submitEvidence}
         />
+      )}
+
+      {/* Blocked Modal */}
+      {showBlockedModal && (
+        <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/75 backdrop-blur-sm p-4 pt-10 overflow-y-auto" onClick={() => setShowBlockedModal(false)}>
+          <div className="relative bg-zinc-950 border border-red-500/30 rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 bg-zinc-950/98 backdrop-blur border-b border-zinc-800 flex items-center justify-between p-5 z-10 rounded-t-2xl shrink-0">
+               <h2 className="text-lg font-semibold text-red-500 flex items-center gap-2">
+                 <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse" /> 
+                 Demandas Bloqueadas ({columns.blocked.length})
+               </h2>
+               <button onClick={() => setShowBlockedModal(false)} className="text-zinc-500 hover:text-zinc-200 text-xl">✕</button>
+            </div>
+            <div className="p-5 overflow-y-auto custom-scrollbar flex-1 pb-10">
+               {columns.blocked.length > 0 ? (
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                   {columns.blocked.map(t => (
+                     <TaskCard key={t.id} task={t} onDragStart={onDragStart} onClick={() => { setShowBlockedModal(false); openTask(t); }} isOverdue={isOverdue(t)} evCount={evCounts[t.id]} onQuickAction={type => { setQuickTask(t); setQuickType(type); setQuickMsg(""); setShowBlockedModal(false); }} />
+                   ))}
+                 </div>
+               ) : (
+                 <p className="text-zinc-500 italic text-center py-6">Sem bloqueios ativos.</p>
+               )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* New task modal */}
@@ -764,6 +811,7 @@ function TaskCard({ task: t, onDragStart, onClick, isOverdue, evCount, onQuickAc
 // ── Task Modal (2-col layout) ──────────────────────────────────────────────────
 type ModalProps = {
   task: Task; updates: TaskUpdate[]; evidences: Evidence[]; loading: boolean; error: string | null; onClose: () => void;
+  onArchive: (id: string) => void; onDelete: (id: string) => void;
   subtasks: Subtask[]; submittingSubtask: boolean; newSubtaskTitle: string; setNewSubtaskTitle: (v: string) => void;
   onSubmitSubtask: () => void; onUpdateSubtaskStatus: (id: string, s: string) => void;
   newUpdateType: UpdateType; setNewUpdateType: (v: UpdateType) => void;
@@ -803,7 +851,12 @@ function TaskModal(p: ModalProps) {
             </div>
             <h2 className="text-lg font-semibold text-zinc-100 leading-snug">{t.title}</h2>
           </div>
-          <button onClick={p.onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors text-xl shrink-0">✕</button>
+          <div className="flex gap-2 shrink-0 items-center">
+            <button onClick={() => p.onArchive(t.id)} className="text-xs text-zinc-500 hover:text-orange-400 border border-zinc-800 hover:border-orange-500/50 bg-black/20 rounded-lg px-2.5 py-1.5 transition-colors" title="Arquivar esta demanda (sairá do board)">📦 Arquivar</button>
+            <button onClick={() => p.onDelete(t.id)} className="text-xs text-zinc-500 hover:text-red-400 border border-zinc-800 hover:border-red-500/50 bg-black/20 rounded-lg px-2.5 py-1.5 transition-colors" title="Apagar definitivamente">🗑️ Excluir</button>
+            <div className="w-px h-6 bg-zinc-800 mx-1"></div>
+            <button onClick={p.onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors text-xl">✕</button>
+          </div>
         </div>
 
         {/* Error banner */}

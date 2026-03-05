@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
              SELECT task_id, COUNT(*) as total, SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done
              FROM task_subtasks GROUP BY task_id
            ) st ON st.task_id = t.id
-           WHERE t.project_key = $1 ORDER BY t.created_at DESC`,
+           WHERE t.project_key = $1 AND (t.is_archived = false OR t.is_archived IS NULL) ORDER BY t.created_at DESC`,
           [projectKey]
         )
       : await db.query(
@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
              SELECT task_id, COUNT(*) as total, SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done
              FROM task_subtasks GROUP BY task_id
            ) st ON st.task_id = t.id
+           WHERE (t.is_archived = false OR t.is_archived IS NULL)
            ORDER BY t.created_at DESC LIMIT 200`
         );
 
