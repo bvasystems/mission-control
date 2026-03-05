@@ -84,7 +84,11 @@ function KanbanBoard() {
   const [filterOwner, setFilterOwner] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [savedFilterId, setSavedFilterId] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [savingFilter, setSavingFilter] = useState(false);
+  const [filterName, setFilterName] = useState("");
 
   // WIP limits
   const [wipLimits, setWipLimits] = useState<Record<KanbanColumn, number>>(DEFAULT_WIP);
@@ -174,16 +178,17 @@ function KanbanBoard() {
     const m: Record<KanbanColumn, Task[]> = { backlog: [], assigned: [], in_progress: [], review: [], approved: [], done: [], blocked: [] };
     const q = search.toLowerCase();
     for (const t of tasks) {
-      if (q && !t.title.toLowerCase().includes(q) && !(t.dem_id ?? "").toLowerCase().includes(q)) continue;
+      if (q && !t.title.toLowerCase().includes(q) && !(t.dem_id ?? "").toLowerCase().includes(q) && !(t.owner ?? "").toLowerCase().includes(q)) continue;
       if (filterOwner && t.owner !== filterOwner) continue;
       if (filterPriority && t.priority !== filterPriority) continue;
       if (filterType && t.type !== filterType) continue;
+      if (filterStatus && (t.column ?? "backlog") !== filterStatus) continue;
       const col = (t.column ?? "backlog") as KanbanColumn;
       (m[col] ?? m.backlog).push(t);
     }
     for (const col of Object.keys(m) as KanbanColumn[]) m[col].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
     return m;
-  }, [tasks, search, filterOwner, filterPriority, filterType]);
+  }, [tasks, search, filterOwner, filterPriority, filterType, filterStatus]);
 
   // DnD
   async function moveTask(id: string, col: KanbanColumn) {
@@ -353,7 +358,37 @@ function KanbanBoard() {
     } finally { setCreatingTask(false); }
   }
 
-  const activeFilters = [search, filterOwner, filterPriority, filterType].filter(Boolean).length;
+  const activeFilters = [search, filterOwner, filterPriority, filterType, filterStatus].filter(Boolean).length;
+
+  // Auto-dismiss error toast after 8s
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(null), 8000);
+    return () => clearTimeout(t);
+  }, [error]);
+
+  async function saveCurrentFilter() {
+    if (!filterName.trim()) return;
+    setSavingFilter(true);
+    try {
+      const res = await fetch("/api/dashboard/filters", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ owner: userName, name: filterName.trim(), filters: { search, owner: filterOwner, priority: filterPriority, type: filterType, status: filterStatus } }),
+      });
+      const j = await res.json();
+      if (j.ok) { setSavedFilters(prev => [j.data, ...prev]); setFilterName(""); }
+    } finally { setSavingFilter(false); }
+  }
+
+  async function deleteFilter(id: string) {
+    await fetch(`/api/dashboard/filters/${id}`, { method: "DELETE" });
+    setSavedFilters(prev => prev.filter(f => f.id !== id));
+    if (savedFilterId === id) setSavedFilterId("");
+  }
+
+  function clearAllFilters() {
+    setSearch(""); setFilterOwner(""); setFilterPriority(""); setFilterType(""); setFilterStatus(""); setSavedFilterId("");
+  }
 
   return (
     <main className="min-h-full text-zinc-100 p-4 md:p-5 relative">
@@ -391,32 +426,50 @@ function KanbanBoard() {
 
         {/* ── Filter bar ── */}
         {showFilters && (
-          <div className="glass rounded-xl border border-white/10 p-3 flex gap-3 flex-wrap items-center animate-in fade-in">
-            <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)} className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300">
-              <option value="">Todos owners</option>
-              {owners.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-            <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300">
-              <option value="">Todas prioridades</option>
-              {["P0", "P1", "P2"].map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-            <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300">
-              <option value="">Todos tipos</option>
-              {["code", "n8n", "bug", "improvement"].map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            {activeFilters > 0 && <button onClick={() => { setSearch(""); setFilterOwner(""); setFilterPriority(""); setFilterType(""); }} className="text-xs text-red-400 hover:text-red-300 transition-colors">✕ Limpar filtros</button>}
-            {savedFilters.length > 0 && (
-              <select onChange={e => {
-                const f = savedFilters.find(x => x.id === e.target.value);
-                if (f && f.filters) {
-                  const o = f.filters as Record<string, string>;
-                  setSearch(o.search || ""); setFilterOwner(o.owner || "");
-                  setFilterPriority(o.priority || ""); setFilterType(o.type || "");
-                }
-              }} className="ml-auto bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2 py-1.5 text-xs text-indigo-300">
-                <option value="">Filtros Salvos...</option>
-                {savedFilters.map(sf => <option key={sf.id} value={sf.id}>{sf.name}</option>)}
+          <div className="glass rounded-xl border border-white/10 p-3 space-y-2 animate-in fade-in">
+            <div className="flex gap-2 flex-wrap items-center">
+              <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)} className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300">
+                <option value="">Todos owners</option>
+                {owners.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
+              <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300">
+                <option value="">Todas prioridades</option>
+                {["P0", "P1", "P2"].map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300">
+                <option value="">Todos tipos</option>
+                {["code", "n8n", "bug", "improvement"].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-300">
+                <option value="">Todos status</option>
+                {(["backlog","assigned","in_progress","review","approved","done","blocked"] as KanbanColumn[]).map(s => (
+                  <option key={s} value={s}>{s.replace("_"," ")}</option>
+                ))}
+              </select>
+              {activeFilters > 0 && <button onClick={clearAllFilters} className="text-xs text-red-400 hover:text-red-300 transition-colors">✕ Limpar tudo</button>}
+              <div className="ml-auto flex items-center gap-1.5">
+                <input value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Nomear filtro..." onKeyDown={e => { if (e.key === "Enter") saveCurrentFilter(); }}
+                  className="bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1 text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-indigo-500/50 w-32" />
+                <button onClick={saveCurrentFilter} disabled={!filterName.trim() || savingFilter} className="border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 rounded-lg px-2 py-1 text-xs hover:bg-indigo-500/20 disabled:opacity-40 transition-colors">
+                  {savingFilter ? "..." : "Salvar"}
+                </button>
+              </div>
+            </div>
+            {savedFilters.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap pt-1 border-t border-white/5">
+                <span className="text-[10px] text-zinc-600 self-center">Salvos:</span>
+                {savedFilters.map(sf => (
+                  <div key={sf.id} className={`flex items-center gap-1 rounded-lg border pl-2 pr-1 py-0.5 text-[10px] transition-colors ${savedFilterId === sf.id ? "border-indigo-500/50 bg-indigo-500/15 text-indigo-300" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
+                    <span className="cursor-pointer" onClick={() => {
+                      const f = sf.filters as Record<string, string>;
+                      setSearch(f.search || ""); setFilterOwner(f.owner || "");
+                      setFilterPriority(f.priority || ""); setFilterType(f.type || ""); setFilterStatus(f.status || "");
+                      setSavedFilterId(sf.id);
+                    }}>{sf.name}</span>
+                    <button onClick={() => deleteFilter(sf.id)} className="text-zinc-600 hover:text-red-400 transition-colors ml-0.5 leading-none" title="Excluir filtro">✕</button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -632,58 +685,66 @@ function TaskCard({ task: t, onDragStart, onClick, isOverdue, evCount, onQuickAc
 
   return (
     <div draggable onDragStart={e => onDragStart(e, t.id)}
-      className={`rounded-xl border p-3 space-y-2.5 transition-all duration-150 group relative
+      className={`rounded-xl border p-3 space-y-2 transition-all duration-150 group relative
         ${isOverdue ? "bg-red-500/5 border-red-500/30" : t.column === "done" ? "bg-emerald-500/5 border-emerald-500/20" : "bg-black/40 border-white/10"}
         hover:border-white/25 hover:bg-black/60 hover:shadow-lg hover:-translate-y-px cursor-pointer`}
     >
-      {/* Top row: DEM-ID + type badge */}
+      {/* Top row: DEM-ID + type + priority + flags */}
       <div className="flex items-center justify-between gap-1" onClick={onClick}>
-        <span className="text-[9px] font-mono text-zinc-600">{t.dem_id ?? "–"}</span>
+        <span className="text-[9px] font-mono text-zinc-400 font-semibold tracking-wide">{t.dem_id ?? "–"}</span>
         <div className="flex items-center gap-1">
           {t.type && <span className={`text-[8px] font-mono uppercase border rounded px-1 py-0.5 ${T_BADGE[t.type] ?? ""}`}>{t.type}</span>}
+          <span className={`text-[8px] font-mono uppercase border rounded px-1 py-0.5 ${P_BADGE[t.priority] ?? ""}`}>{t.priority}</span>
           {isOverdue && <span className="text-[8px] bg-red-500/20 text-red-300 border border-red-500/30 rounded px-1 py-0.5 font-mono">OVERDUE</span>}
           {t.column === "blocked" && <span className="text-[8px] bg-red-500/20 text-red-300 border border-red-500/30 rounded px-1 py-0.5 font-mono animate-pulse">BLOCKED</span>}
         </div>
       </div>
 
       {/* Title */}
-      <p className="text-xs font-medium text-zinc-200 leading-snug line-clamp-2" onClick={onClick}>{t.title}</p>
+      <p className="text-xs font-medium text-zinc-100 leading-snug line-clamp-2" onClick={onClick}>{t.title}</p>
 
-      {/* Meta row: priority + owner + due + evidence count */}
-      <div className="flex items-center gap-1.5 flex-wrap" onClick={onClick}>
-        <span className={`text-[8px] font-mono uppercase border rounded px-1 py-0.5 ${P_BADGE[t.priority] ?? ""}`}>{t.priority}</span>
-        {t.owner && <span className="text-[8px] text-zinc-500">@{t.owner}</span>}
-        {(t.subtasks_total as number) > 0 && (
-          <span className="text-[8px] font-mono text-indigo-400">
-            {t.subtasks_done}/{t.subtasks_total} subs ({Math.round((Number(t.subtasks_done)/Number(t.subtasks_total))*100)}%)
+      {/* Meta row: owner + due date + subtask count + evidence */}
+      <div className="flex items-center gap-2 flex-wrap" onClick={onClick}>
+        {t.owner && <span className="text-[8px] text-zinc-400">@{t.owner}</span>}
+        {t.due_date && (
+          <span className={`text-[8px] font-mono ${isOverdue ? "text-red-400 font-bold" : "text-zinc-500"}`}>
+            {isOverdue ? "⚠ " : ""}{new Date(t.due_date).toLocaleDateString("pt-BR")}
           </span>
         )}
-        {t.due_date && (
-          <span className={`text-[8px] font-mono ml-auto ${isOverdue ? "text-red-400 font-bold" : "text-zinc-600"}`}>
-            {isOverdue ? "⚠ " : "📅 "}{new Date(t.due_date).toLocaleDateString("pt-BR")}
+        {(t.subtasks_total as number) > 0 && (
+          <span className="text-[8px] font-mono text-indigo-400 ml-auto">
+            ✓ {t.subtasks_done}/{t.subtasks_total}
           </span>
         )}
         {evCount !== undefined && (
-          <span className={`text-[8px] font-mono ml-auto ${evCount === 0 ? "text-yellow-600" : "text-emerald-600"}`}>
-            {evCount === 0 ? "⚠ sem evidência" : `✓ ${evCount} evidência${evCount !== 1 ? "s" : ""}`}
+          <span className={`text-[8px] font-mono ${(t.subtasks_total as number) > 0 ? "" : "ml-auto"} ${evCount === 0 ? "text-yellow-500" : "text-emerald-500"}`}>
+            {evCount === 0 ? "⚠ ev" : `🔗 ${evCount}`}
           </span>
         )}
       </div>
 
-      {/* Progress bar */}
+      {/* Subtask progress bar */}
+      {(t.subtasks_total as number) > 0 && (
+        <div className="h-0.5 bg-zinc-800 rounded-full overflow-hidden" onClick={onClick}>
+          <div className="h-full bg-indigo-500 rounded-full transition-all"
+            style={{ width: `${Math.round((Number(t.subtasks_done)/Number(t.subtasks_total))*100)}%` }} />
+        </div>
+      )}
+
+      {/* Task progress bar */}
       {t.progress != null && t.progress > 0 && (
-        <div className="h-1 bg-zinc-800 rounded-full overflow-hidden" onClick={onClick}>
-          <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${t.progress}%` }} />
+        <div className="h-0.5 bg-zinc-800 rounded-full overflow-hidden" onClick={onClick}>
+          <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${t.progress}%` }} />
         </div>
       )}
 
       {/* Quick actions (hover) */}
       <div className={`transition-all duration-150 overflow-hidden ${showActions ? "max-h-20 opacity-100" : "max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100"}`}>
-        <div className="flex gap-1 pt-1 border-t border-white/5">
+        <div className="flex gap-1 pt-1.5 border-t border-white/5">
           {([
             { type: "ACK" as UpdateType, label: "ACK", cls: "hover:bg-blue-500/20 hover:text-blue-300 hover:border-blue-500/30" },
             { type: "BLOCKED" as UpdateType, label: "Block", cls: "hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30" },
-            { type: "DONE" as UpdateType, label: "Done", cls: "hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500/30" },
+            { type: "DONE" as UpdateType, label: "Done✓", cls: "hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500/30" },
           ]).map(({ type, label, cls }) => (
             <button key={type}
               onClick={e => { e.stopPropagation(); onQuickAction(type); setShowActions(false); }}
@@ -791,16 +852,23 @@ function TaskModal(p: ModalProps) {
 
               {/* Updates timeline */}
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">Timeline ({p.updates.length})</p>
-                <div className="space-y-1.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Timeline ({p.updates.length})</p>
+                  {p.updates.length > 0 && <span className="text-[9px] text-zinc-600">↓ mais recente primeiro</span>}
+                </div>
+                <div className="space-y-1.5 max-h-72 overflow-y-auto custom-scrollbar pr-1">
                   {p.loading && <div className="h-8 bg-zinc-800 animate-pulse rounded-lg" />}
                   {!p.loading && p.updates.length === 0 && <p className="text-xs text-zinc-600 italic">Nenhum update ainda.</p>}
-                  {p.updates.map(u => (
-                    <div key={u.id} className="flex gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs">
+                  {p.updates.map((u, i) => (
+                    <div key={u.id} className={`flex gap-2 rounded-lg px-3 py-2 text-xs border ${i === 0 ? "bg-zinc-900/80 border-zinc-700" : "bg-zinc-900/40 border-zinc-800"}`}>
                       <span className={`font-mono uppercase border rounded px-1.5 py-0.5 text-[8px] shrink-0 self-start mt-0.5 ${U_BADGE[u.update_type] ?? ""}`}>{u.update_type}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-zinc-200 leading-snug">{u.message}</p>
-                        <p className="text-[9px] text-zinc-600 mt-0.5 font-mono">{u.author} · {new Date(u.created_at).toLocaleString("pt-BR")}{u.progress != null ? ` · ${u.progress}%` : ""}</p>
+                        <p className="text-[9px] text-zinc-400 mt-0.5 font-mono">
+                          <span className="font-semibold">{u.author}</span> · {new Date(u.created_at).toLocaleString("pt-BR")}
+                          {u.progress != null ? <span className="text-indigo-400"> · {u.progress}%</span> : ""}
+                          {i === 0 && <span className="ml-2 text-[8px] text-zinc-600 border border-zinc-700 rounded px-1">recente</span>}
+                        </p>
                       </div>
                     </div>
                   ))}
