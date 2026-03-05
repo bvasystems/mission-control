@@ -214,7 +214,20 @@ function KanbanBoard() {
         body: JSON.stringify({ update_type: quickType, message: quickMsg.trim(), author: userName }),
       });
       const j = await res.json();
-      if (!res.ok) { setError(j.error ?? "Erro no quick action."); return; }
+      if (!res.ok) {
+        if (j.code === "MISSING_EVIDENCE") {
+          setError("🚫 Guardrail: abra o card → aba Evidências → anexe ao menos uma evidência antes de marcar DONE.");
+        } else {
+          setError(j.error ?? "Erro no quick action.");
+        }
+        return;
+      }
+      // Optimistic board update
+      if (quickType === "DONE") {
+        setTasks(prev => prev.map(t => t.id === quickTask.id ? { ...t, status: "Done", column: "done" } : t));
+      } else if (quickType === "BLOCKED") {
+        setTasks(prev => prev.map(t => t.id === quickTask.id ? { ...t, status: "Blocked", column: "blocked" } : t));
+      }
       setQuickTask(null); setQuickMsg("");
       await refresh();
     } finally { setQuickSubmitting(false); }
@@ -244,8 +257,8 @@ function KanbanBoard() {
     const isUpdate = newUpdateType === "UPDATE";
     if (!selectedTask || !newUpdateMsg.trim()) return;
     if (isUpdate && !newUpdateProgress) {
-        setError("O progresso (%) é obrigatório para o tipo UPDATE.");
-        return;
+      setError("O progresso (%) é obrigatório para o tipo UPDATE.");
+      return;
     }
 
     setSubmittingUpdate(true); setError(null);
@@ -255,9 +268,31 @@ function KanbanBoard() {
         body: JSON.stringify({ update_type: newUpdateType, message: newUpdateMsg.trim(), progress: newUpdateProgress ? Number(newUpdateProgress) : undefined, author: userName }),
       });
       const j = await res.json();
-      if (!res.ok) { setError(j.error ?? "Erro ao registrar update."); return; }
+      if (!res.ok) {
+        if (j.code === "MISSING_EVIDENCE") {
+          setError("🚫 Guardrail: para marcar como DONE anexe ao menos uma evidência. Acesse a aba Evidências → Anexar.");
+        } else {
+          setError(j.error ?? "Erro ao registrar update.");
+        }
+        return;
+      }
+
       setNewUpdateMsg(""); setNewUpdateProgress("");
-      const [up] = await Promise.all([fetch(`/api/dashboard/tasks/${selectedTask.id}/updates`, { cache: "no-store" }).then(r => r.json()), refresh()]);
+
+      // Optimistically update selectedTask if status changed server-side
+      if (newUpdateType === "DONE") {
+        setSelectedTask(prev => prev ? { ...prev, status: "Done", column: "done" } : prev);
+        setTasks(prev => prev.map(t => t.id === selectedTask.id ? { ...t, status: "Done", column: "done" } : t));
+      } else if (newUpdateType === "BLOCKED") {
+        setSelectedTask(prev => prev ? { ...prev, status: "Blocked", column: "blocked" } : prev);
+        setTasks(prev => prev.map(t => t.id === selectedTask.id ? { ...t, status: "Blocked", column: "blocked" } : t));
+      }
+
+      // Re-fetch updates list and refresh board in parallel
+      const [up] = await Promise.all([
+        fetch(`/api/dashboard/tasks/${selectedTask.id}/updates`, { cache: "no-store" }).then(r => r.json()),
+        refresh(),
+      ]);
       setTaskUpdates(up.data ?? []);
     } finally { setSubmittingUpdate(false); }
   }
@@ -777,9 +812,16 @@ function TaskModal(p: ModalProps) {
             <div className="sticky bottom-0 bg-zinc-950/95 border-t border-zinc-800 p-4 space-y-2 shrink-0">
               <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Registrar update</p>
               <div className="flex gap-2 flex-wrap">
-                {(["ACK","UPDATE","BLOCKED","DONE"] as UpdateType[]).map(tp => (
-                  <button key={tp} onClick={() => p.setNewUpdateType(tp)} className={`flex-1 rounded-lg py-1 text-[10px] font-mono uppercase border transition-colors ${p.newUpdateType === tp ? U_BADGE[tp] : "border-zinc-700 text-zinc-500 hover:border-zinc-500"}`}>{tp}</button>
-                ))}
+                {(["ACK","UPDATE","BLOCKED","DONE"] as UpdateType[]).map(tp => {
+                  const isDoneLocked = tp === "DONE" && noEvidence;
+                  return (
+                    <button key={tp} onClick={() => p.setNewUpdateType(tp)}
+                      title={isDoneLocked ? "Anexe uma evidência antes de marcar DONE" : undefined}
+                      className={`flex-1 rounded-lg py-1 text-[10px] font-mono uppercase border transition-colors relative ${p.newUpdateType === tp ? U_BADGE[tp] : "border-zinc-700 text-zinc-500 hover:border-zinc-500"} ${isDoneLocked ? "opacity-50 cursor-not-allowed" : ""}`}>
+                      {tp}{isDoneLocked && " 🔒"}
+                    </button>
+                  );
+                })}
               </div>
               <div className="flex gap-2">
                 <input value={p.newUpdateProgress} onChange={e => p.setNewUpdateProgress(e.target.value)} type="number" min={0} max={100} placeholder="Progresso %" className="w-28 bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500/50" />
@@ -789,6 +831,7 @@ function TaskModal(p: ModalProps) {
                 </button>
               </div>
             </div>
+
           </div>
 
           {/* Right: evidences */}

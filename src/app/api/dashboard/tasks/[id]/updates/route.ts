@@ -48,41 +48,70 @@ export async function POST(
 
   const d = parsed.data;
 
+  // Acquire a dedicated client for transaction support
+  const client = await db.connect();
   try {
     // Ensure task exists
-    const exists = await db.query(`SELECT id FROM tasks WHERE id = $1`, [id]);
+    const exists = await client.query(`SELECT id FROM tasks WHERE id = $1`, [id]);
     if (exists.rows.length === 0) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const q = await db.query(
+    // ── Guardrail: DONE update requires at least one evidence ──────────────
+    if (d.update_type === "DONE") {
+      const evCount = await client.query(
+        `SELECT COUNT(*) AS cnt FROM task_evidences WHERE task_id = $1`,
+        [id]
+      );
+      const cnt = Number(evCount.rows[0]?.cnt ?? 0);
+      if (cnt === 0) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Guardrail: não é possível marcar como Concluído sem ao menos uma evidência anexada. Vá na aba Evidências e anexe antes de marcar DONE.",
+            code: "MISSING_EVIDENCE",
+          },
+          { status: 422 }
+        );
+      }
+    }
+
+    // ── Atomic transaction: insert update + sync task status ───────────────
+    await client.query("BEGIN");
+
+    const q = await client.query(
       `INSERT INTO task_updates (task_id, update_type, message, progress, author)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
       [id, d.update_type, d.message, d.progress ?? null, d.author]
     );
 
-    // If update is DONE type, auto-advance task status to Review
+    // DONE → transition task to Done/done column
     if (d.update_type === "DONE") {
-      await db.query(
-        `UPDATE tasks SET status = 'Review', "column" = 'validation', updated_at = NOW()
-         WHERE id = $1 AND status NOT IN ('Done','Approved')`,
+      await client.query(
+        `UPDATE tasks SET status = 'Done', "column" = 'done', updated_at = NOW()
+         WHERE id = $1`,
         [id]
       );
     }
 
-    // If update is BLOCKED type, auto-advance task status to Blocked
+    // BLOCKED → transition task to Blocked/blocked column
     if (d.update_type === "BLOCKED") {
-      await db.query(
+      await client.query(
         `UPDATE tasks SET status = 'Blocked', "column" = 'blocked', updated_at = NOW()
          WHERE id = $1`,
         [id]
       );
     }
 
+    await client.query("COMMIT");
+
     return NextResponse.json({ ok: true, data: q.rows[0] }, { status: 201 });
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("POST /api/dashboard/tasks/[id]/updates:", err);
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });
+  } finally {
+    client.release();
   }
 }
