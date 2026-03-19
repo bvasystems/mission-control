@@ -86,7 +86,7 @@ const PANEL_CONFIG: Record<string, { title: string; icon: React.ReactNode; route
   "agent-detail": { title: "Controle do Agente", icon: <Bot size={15} />,         route: "/agents" },
 };
 
-// ── Agent Detail Panel ───────────────────────────────────────────────────────
+// ── Agent Detail Panel (Chat-first layout) ──────────────────────────────────
 
 function AgentDetailPanel({ agentId }: { agentId: string }) {
   const { data: agents } = useAgents();
@@ -94,9 +94,8 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   const { data: history, isLoading: historyLoading } = useDispatchHistory(agentId);
   const { send, sending, error: sendError } = useSendDispatch();
   const { commandDraft, setCommandDraft } = useOfficeStore();
-  const [showHistory, setShowHistory] = useState(true);
-  const [showTasks, setShowTasks] = useState(true);
   const [showTaskPicker, setShowTaskPicker] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const [lastSent, setLastSent] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -105,14 +104,11 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   );
 
   useEffect(() => {
-    if (showHistory && chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [history, showHistory]);
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [history]);
 
   if (!agent) return <p className="text-zinc-500 text-sm py-8 text-center">Agente nao encontrado</p>;
 
-  const colors = getAgentColor(agent.name);
   const agentTasks = allTasks?.filter(
     (t) => (t.owner?.toLowerCase() === agent.name.toLowerCase() ||
             t.assigned_to?.toLowerCase() === agent.name.toLowerCase()) &&
@@ -165,61 +161,85 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   };
 
   return (
-    <div className="space-y-5">
-      {/* ── Agent header with gradient card ── */}
-      <div className={`relative rounded-xl p-4 bg-gradient-to-br ${colors.gradient} border border-white/[0.06] overflow-hidden`}>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/[0.03] to-transparent" />
-        <div className="relative flex items-center gap-3.5">
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* ── Compact header ── */}
+      <div className="px-4 py-3 border-b border-white/[0.06] shrink-0">
+        <div className="flex items-center gap-3">
           <div className="relative">
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/10"
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-lg"
               style={{ backgroundColor: agentColorHex(agent.name) }}
             >
               {agent.name.charAt(0)}
             </div>
-            <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-zinc-900 ${STATUS_DOT[agent.status]} ${agent.status === "active" ? "animate-pulse" : ""}`} />
+            <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-zinc-950 ${STATUS_DOT[agent.status]} ${agent.status === "active" ? "animate-pulse" : ""}`} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white font-semibold text-base truncate">{agent.name}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-zinc-400 font-medium">Level {agent.level}</span>
-              <span className="text-zinc-700">·</span>
-              <span className={`text-[10px] font-medium capitalize ${
-                agent.status === "active" ? "text-emerald-400" :
-                agent.status === "degraded" ? "text-amber-400" :
-                agent.status === "down" ? "text-red-400" : "text-zinc-500"
+            <div className="flex items-center gap-2">
+              <p className="text-white font-semibold text-sm truncate">{agent.name}</p>
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
+                agent.status === "active" ? "text-emerald-400 bg-emerald-500/10" :
+                agent.status === "degraded" ? "text-amber-400 bg-amber-500/10" :
+                agent.status === "down" ? "text-red-400 bg-red-500/10" :
+                "text-zinc-500 bg-zinc-500/10"
               }`}>{agent.status}</span>
             </div>
+            {/* Inline metrics */}
+            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-zinc-500">
+              <span>L{agent.level}</span>
+              <span>{agent.messages_24h} msgs</span>
+              {agent.errors_24h > 0 && <span className="text-red-400">{agent.errors_24h} erros</span>}
+              <span>{timeAgo(agent.last_seen)}</span>
+            </div>
           </div>
+          <button
+            onClick={() => setShowInfo(!showInfo)}
+            className={`p-1.5 rounded-lg transition-all ${showInfo ? "bg-white/[0.08] text-zinc-300" : "text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.04]"}`}
+            title="Detalhes"
+          >
+            <Activity size={14} />
+          </button>
         </div>
-      </div>
 
-      {/* ── Metrics grid ── */}
-      <div className="grid grid-cols-2 gap-2">
-        <MetricCard label="Msgs 24h" value={agent.messages_24h} icon={<MessageSquare size={11} />} />
-        <MetricCard label="Erros 24h" value={agent.errors_24h} warn={agent.errors_24h > 0} icon={<AlertTriangle size={11} />} />
-        <MetricCard label="Confiabilidade" value={agent.reliability_score != null ? `${agent.reliability_score}%` : "--"} icon={<Sparkles size={11} />} />
-        <MetricCard label="Ultimo ping" value={timeAgo(agent.last_seen)} icon={<CircleDot size={11} />} />
-      </div>
-
-      {/* ── Active tasks ── */}
-      {agentTasks.length > 0 && (
-        <Section title={`Tasks ativas (${agentTasks.length})`} open={showTasks} onToggle={() => setShowTasks(!showTasks)}>
-          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-            {agentTasks.map((t: Task) => (
-              <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.04] hover:bg-white/[0.05] transition-colors">
-                <PriorityBadge priority={t.priority} />
-                <p className="text-xs text-zinc-300 truncate flex-1">{t.title}</p>
-                <ColumnBadge column={t.column} />
+        {/* Expandable info section */}
+        {showInfo && (
+          <div className="mt-3 pt-3 border-t border-white/[0.05] space-y-2.5">
+            {/* Metrics row */}
+            <div className="flex gap-2">
+              <div className="flex-1 bg-white/[0.03] rounded-lg p-2 text-center">
+                <p className="text-[9px] text-zinc-600 uppercase">Msgs 24h</p>
+                <p className="text-sm font-semibold text-white">{agent.messages_24h}</p>
               </div>
-            ))}
-          </div>
-        </Section>
-      )}
+              <div className="flex-1 bg-white/[0.03] rounded-lg p-2 text-center">
+                <p className="text-[9px] text-zinc-600 uppercase">Erros</p>
+                <p className={`text-sm font-semibold ${agent.errors_24h > 0 ? "text-red-400" : "text-white"}`}>{agent.errors_24h}</p>
+              </div>
+              <div className="flex-1 bg-white/[0.03] rounded-lg p-2 text-center">
+                <p className="text-[9px] text-zinc-600 uppercase">Uptime</p>
+                <p className="text-sm font-semibold text-white">{agent.reliability_score != null ? `${agent.reliability_score}%` : "--"}</p>
+              </div>
+            </div>
 
-      {/* ── Quick actions ── */}
-      <Section title="Acoes rapidas">
-        <div className="grid grid-cols-2 gap-1.5">
+            {/* Tasks */}
+            {agentTasks.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[9px] text-zinc-600 uppercase font-medium">Tasks ({agentTasks.length})</p>
+                {agentTasks.slice(0, 3).map((t: Task) => (
+                  <div key={t.id} className="flex items-center gap-1.5 text-[11px]">
+                    <PriorityBadge priority={t.priority} small />
+                    <span className="text-zinc-400 truncate flex-1">{t.title}</span>
+                    <ColumnBadge column={t.column} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Quick actions (horizontal chips) ── */}
+      <div className="px-4 py-2 border-b border-white/[0.04] shrink-0">
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {QUICK_ACTIONS.map((action) => (
             <button
               key={action.id}
@@ -231,41 +251,99 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
                 }
               }}
               disabled={sending}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] hover:border-white/[0.10] transition-all text-left text-xs text-zinc-400 hover:text-white disabled:opacity-40 group"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.05] hover:border-white/[0.10] text-[11px] text-zinc-400 hover:text-white whitespace-nowrap transition-all disabled:opacity-40"
             >
-              <span className="text-sm opacity-70 group-hover:opacity-100 transition-opacity">{action.icon}</span>
-              <span className="truncate">{action.label}</span>
+              <span className="text-xs">{action.icon}</span>
+              {action.label}
             </button>
           ))}
         </div>
 
         {/* Task picker */}
         {showTaskPicker && (
-          <div className="mt-2 border border-white/[0.08] rounded-xl bg-zinc-900/80 backdrop-blur max-h-48 overflow-y-auto">
-            <p className="text-[10px] text-zinc-500 px-3 py-2 border-b border-white/[0.06] sticky top-0 bg-zinc-900/95 backdrop-blur font-medium uppercase tracking-wider">
+          <div className="mt-2 border border-white/[0.08] rounded-xl bg-zinc-900/90 backdrop-blur max-h-40 overflow-y-auto">
+            <p className="text-[9px] text-zinc-500 px-3 py-1.5 border-b border-white/[0.06] sticky top-0 bg-zinc-900/95 font-semibold uppercase tracking-wider">
               Selecionar task
             </p>
-            {allTasks?.filter((t) => t.column !== "done").slice(0, 20).map((t: Task) => (
+            {allTasks?.filter((t) => t.column !== "done").slice(0, 15).map((t: Task) => (
               <button
                 key={t.id}
                 onClick={() => handleDelegateTask(t)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.05] transition-colors text-left border-b border-white/[0.03] last:border-0"
+                className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-white/[0.05] transition-colors text-left border-b border-white/[0.03] last:border-0"
               >
                 <PriorityBadge priority={t.priority} small />
-                <span className="text-xs text-zinc-300 truncate flex-1">{t.title}</span>
-                <span className="text-[9px] text-zinc-600 shrink-0">{t.column}</span>
+                <span className="text-[11px] text-zinc-300 truncate flex-1">{t.title}</span>
               </button>
             ))}
             {(!allTasks || allTasks.filter((t) => t.column !== "done").length === 0) && (
-              <p className="text-xs text-zinc-600 text-center py-4">Nenhuma task disponivel</p>
+              <p className="text-[11px] text-zinc-600 text-center py-3">Nenhuma task</p>
             )}
           </div>
         )}
-      </Section>
+      </div>
 
-      {/* ── Command input ── */}
-      <div>
-        <SectionLabel>Enviar comando</SectionLabel>
+      {/* ── Chat area (flex-1, scrollable) ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2.5">
+        {historyLoading && <Loading />}
+        {!historyLoading && (!history || history.length === 0) && (
+          <div className="flex flex-col items-center justify-center h-full text-zinc-600">
+            <MessageSquare size={24} className="mb-2 text-zinc-700" />
+            <p className="text-xs">Envie uma mensagem para {agent.name}</p>
+          </div>
+        )}
+        {history?.map((d: AgentDispatch) => {
+          const sc = DISPATCH_STATUS[d.status];
+          const isInbound = d.direction === "inbound";
+
+          return (
+            <div key={d.id} className="space-y-1.5">
+              {isInbound ? (
+                <ChatBubbleInbound
+                  name={agent.name}
+                  text={d.command_text}
+                  time={d.created_at}
+                  source={d.metadata && typeof d.metadata === "object" && "source" in d.metadata ? String(d.metadata.source) : undefined}
+                />
+              ) : (
+                <>
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%] bg-indigo-600/15 border border-indigo-500/12 rounded-2xl rounded-br-md px-3 py-2">
+                      <p className="text-xs text-indigo-200 break-words leading-relaxed">{d.command_text}</p>
+                      <div className="flex items-center justify-end gap-2 mt-1">
+                        <span className="text-[9px] text-indigo-400/40">{timeAgo(d.created_at)}</span>
+                        <span className={`text-[9px] font-medium ${sc.color}`}>{sc.label}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {d.response ? (
+                    <ChatBubbleInbound name={agent.name} text={d.response} time={d.responded_at} />
+                  ) : d.status === "failed" ? (
+                    <div className="flex justify-start">
+                      <div className="bg-red-500/[0.06] border border-red-500/10 rounded-2xl rounded-bl-md px-3 py-1.5">
+                        <span className="text-[10px] text-red-400/80 italic">Falha na resposta</span>
+                      </div>
+                    </div>
+                  ) : d.status !== "done" ? (
+                    <div className="flex justify-start">
+                      <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl rounded-bl-md px-3 py-2">
+                        <TypingIndicator />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-start">
+                      <span className="text-[9px] text-zinc-700 italic px-2">Sem resposta</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* ── Input bar (always visible at bottom) ── */}
+      <div className="px-4 py-3 border-t border-white/[0.06] shrink-0 bg-zinc-950/80">
         <div className="flex gap-2">
           <input
             type="text"
@@ -279,87 +357,22 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
           <button
             onClick={handleSend}
             disabled={sending || !commandDraft.trim()}
-            className="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-700 text-white transition-all flex items-center gap-1.5 text-sm shrink-0 shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/20 disabled:shadow-none"
+            className="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-700 text-white transition-all shrink-0 shadow-lg shadow-indigo-500/10 disabled:shadow-none"
           >
             {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           </button>
         </div>
-
         {lastSent && (
-          <p className="text-xs text-emerald-400 mt-2 flex items-center gap-1.5 animate-in fade-in">
-            <CheckCircle2 size={12} /> Enviado com sucesso
+          <p className="text-[10px] text-emerald-400 mt-1.5 flex items-center gap-1">
+            <CheckCircle2 size={10} /> Enviado
           </p>
         )}
         {sendError && (
-          <p className="text-xs text-red-400 mt-2 flex items-center gap-1.5">
-            <AlertTriangle size={12} /> {sendError}
+          <p className="text-[10px] text-red-400 mt-1.5 flex items-center gap-1">
+            <AlertTriangle size={10} /> {sendError}
           </p>
         )}
       </div>
-
-      {/* ── Chat history ── */}
-      <Section title="Conversas" open={showHistory} onToggle={() => setShowHistory(!showHistory)}>
-        <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-          {historyLoading && <Loading />}
-          {!historyLoading && (!history || history.length === 0) && (
-            <EmptyState text="Nenhum comando enviado ainda" small />
-          )}
-          {history?.map((d: AgentDispatch) => {
-            const sc = DISPATCH_STATUS[d.status];
-            const isInbound = d.direction === "inbound";
-
-            return (
-              <div key={d.id} className="space-y-1.5">
-                {isInbound ? (
-                  <ChatBubbleInbound
-                    name={agent.name}
-                    text={d.command_text}
-                    time={d.created_at}
-                    source={d.metadata && typeof d.metadata === "object" && "source" in d.metadata ? String(d.metadata.source) : undefined}
-                  />
-                ) : (
-                  <>
-                    {/* Outbound */}
-                    <div className="flex justify-end">
-                      <div className="max-w-[85%] bg-indigo-600/15 border border-indigo-500/15 rounded-2xl rounded-br-md px-3.5 py-2">
-                        <p className="text-xs text-indigo-200 break-words leading-relaxed">{d.command_text}</p>
-                        <div className="flex items-center justify-end gap-2 mt-1.5">
-                          <span className="text-[10px] text-indigo-400/50">{timeAgo(d.created_at)}</span>
-                          <span className={`text-[10px] font-medium ${sc.color}`}>{sc.label}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Agent response */}
-                    {d.response ? (
-                      <ChatBubbleInbound name={agent.name} text={d.response} time={d.responded_at} />
-                    ) : d.status === "failed" ? (
-                      <div className="flex justify-start">
-                        <div className="bg-red-500/[0.06] border border-red-500/10 rounded-2xl rounded-bl-md px-3.5 py-2">
-                          <span className="text-[10px] text-red-400/80 italic">Falha na resposta</span>
-                        </div>
-                      </div>
-                    ) : d.status !== "done" ? (
-                      <div className="flex justify-start">
-                        <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl rounded-bl-md px-3.5 py-2.5">
-                          <TypingIndicator />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex justify-start">
-                        <div className="bg-white/[0.02] border border-white/[0.04] rounded-2xl rounded-bl-md px-3.5 py-2">
-                          <span className="text-[10px] text-zinc-600 italic">Sem resposta</span>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
-          <div ref={chatEndRef} />
-        </div>
-      </Section>
     </div>
   );
 }
@@ -904,9 +917,9 @@ export function SidePanel() {
             </div>
           </div>
 
-          {/* Content — meeting gerencia seu próprio scroll/layout */}
+          {/* Content — meeting e agent-detail gerenciam seu próprio scroll/layout */}
           <div className={`flex-1 min-h-0 ${
-            activePanel === "meeting"
+            activePanel === "meeting" || activePanel === "agent-detail"
               ? "flex flex-col"
               : "overflow-y-auto px-5 py-4"
           }`}>
