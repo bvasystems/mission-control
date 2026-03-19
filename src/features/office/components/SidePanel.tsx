@@ -291,7 +291,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
             <p className="text-xs">Envie uma mensagem para {agent.name}</p>
           </div>
         )}
-        {history?.map((d: AgentDispatch) => {
+        {[...(history ?? [])].reverse().map((d: AgentDispatch) => {
           const sc = DISPATCH_STATUS[d.status];
           const isInbound = d.direction === "inbound";
 
