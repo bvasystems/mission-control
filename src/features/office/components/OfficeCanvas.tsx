@@ -119,8 +119,18 @@ export function OfficeCanvas() {
 
     // 4. Activity + Room assignment per agent
     const activityMap = new Map<string, AgentActivity>();
+    const meetingSeats = [
+      { x: 990, y: 120 }, { x: 1050, y: 120 }, { x: 1110, y: 120 }, { x: 1170, y: 120 },
+      { x: 990, y: 225 }, { x: 1050, y: 225 }, { x: 1110, y: 225 }, { x: 1170, y: 225 },
+    ];
+    let seatCounter = 0;
+
     for (const agentCfg of AGENTS) {
-      if (agentCfg.id === "joao") continue; // Player-controlled
+      const isJoao = agentCfg.id === "joao";
+      const isInMeeting = meetingAgents.includes(agentCfg.id);
+
+      // João is player-controlled EXCEPT when called to meeting
+      if (isJoao && !isInMeeting) continue;
 
       const nameKey = agentCfg.name.toLowerCase();
       const statusData = statusMap.get(nameKey);
@@ -149,15 +159,14 @@ export function OfficeCanvas() {
         // Stay at their desk
         setAgentTarget(state, agentCfg.id, agentCfg.spawnX, agentCfg.spawnY);
       } else if (targetRoom === "sala-reuniao") {
-        // Sit in meeting room chairs (8 chairs around the table)
-        // Chairs: top row y=120, bottom row y=225, x from 980 to 1160
-        const meetingSeats = [
-          { x: 990, y: 120 }, { x: 1050, y: 120 }, { x: 1110, y: 120 }, { x: 1170, y: 120 },
-          { x: 990, y: 225 }, { x: 1050, y: 225 }, { x: 1110, y: 225 }, { x: 1170, y: 225 },
-        ];
-        const seatIdx = AGENTS.indexOf(agentCfg) % meetingSeats.length;
-        const seat = meetingSeats[seatIdx];
+        const seat = meetingSeats[seatCounter % meetingSeats.length];
+        seatCounter++;
         setAgentTarget(state, agentCfg.id, seat.x, seat.y);
+        // Disable player control for João during meeting
+        if (isJoao) {
+          const joaoAnim = state.agentAnims.get("joao");
+          if (joaoAnim) { joaoAnim.isPlayerControlled = false; joaoAnim.velX = 0; joaoAnim.velY = 0; }
+        }
       } else {
         // Other rooms (copa, etc) → room center with offset
         const center = getRoomCenter(targetRoom);
@@ -169,6 +178,15 @@ export function OfficeCanvas() {
         }
       }
     }
+
+    // Restore João's player control when not in meeting
+    if (!meetingAgents.includes("joao")) {
+      const joaoAnim = state.agentAnims.get("joao");
+      if (joaoAnim && !joaoAnim.isPlayerControlled) {
+        joaoAnim.isPlayerControlled = true;
+      }
+    }
+
     state.agentActivities = activityMap;
   }, [agents, dispatches, incidents, tasks, meetingAgents]);
 
