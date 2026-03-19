@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AuthButton from "@/components/AuthButton";
-import { LayoutDashboard, KanbanSquare, TriangleAlert, Clock, Bot, FolderKanban, Activity } from "lucide-react";
+import { LayoutDashboard, KanbanSquare, TriangleAlert, Clock, Bot, FolderKanban, Activity, Building2 } from "lucide-react";
 
 const items = [
   { href: "/",         label: "Dashboard", icon: LayoutDashboard },
@@ -13,6 +13,7 @@ const items = [
   { href: "/crons",    label: "Crons",     icon: Clock },
   { href: "/agents",   label: "Agents",    icon: Bot },
   { href: "/canvas",   label: "Canvas",    icon: Activity },
+  { href: "/office",   label: "Office",    icon: Building2 },
 ];
 
 export default function Sidebar() {
