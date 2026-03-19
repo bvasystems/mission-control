@@ -1,6 +1,12 @@
 // ── Room Assignment Engine ────────────────────────────────────────────────────
 // Pure function that determines which room an agent should be in based on
 // their status, tasks, dispatches, and incidents.
+//
+// Agent roles affect behavior:
+// - "leader" agents (Jota) stay in their default room (Diretoria) and only
+//   move for direct dispatches or critical incidents. They delegate tasks,
+//   they don't go to task rooms.
+// - Regular agents move freely based on their tasks/status.
 
 import type { AgentConfig } from "../config/office-map";
 
@@ -12,42 +18,53 @@ export interface RoomAssignmentInput {
     type: string;
     priority: string;
   }>;
-  isIncidentOwner: boolean;     // agent owns a high/critical incident
+  isIncidentOwner: boolean;
   incidentSeverity: string | null;
 }
 
-// Priority order (highest first):
-// 1. Active dispatch → command-center
-// 2. Critical/high incident owner → war-room
-// 3. Agent down → server-room
-// 4. Task in review → sprint-room
-// 5. Task type code/bug in progress → dev-area
-// 6. Task related to deploy/infra → deploy-room
-// 7. Idle with no tasks → lounge
-// 8. Default room from config
+// Leader agents: stay in default room, only move for critical situations
+const LEADER_AGENTS = new Set(["jota"]);
 
 export function determineRoom(
   agent: AgentConfig,
   input: RoomAssignmentInput
 ): string {
-  // 1. Active dispatch — agent goes to command center to process
+  const isLeader = LEADER_AGENTS.has(agent.id);
+
+  // 1. Active dispatch → command-center (all agents)
   if (input.hasActiveDispatch) {
     return "command-center";
   }
 
-  // 2. Critical incident — agent goes to war room
-  if (input.isIncidentOwner && (input.incidentSeverity === "critical" || input.incidentSeverity === "high")) {
+  // 2. Critical incident → war-room (all agents)
+  if (input.isIncidentOwner && input.incidentSeverity === "critical") {
     return "war-room";
   }
 
-  // 3. Agent is down
+  // ── Leader agents: only move for the above critical reasons ──────────────
+  if (isLeader) {
+    // High incident (not critical) — leader goes to war room too
+    if (input.isIncidentOwner && input.incidentSeverity === "high") {
+      return "war-room";
+    }
+    // Otherwise: leader stays in their office
+    return agent.defaultRoom;
+  }
+
+  // ── Regular agents: full movement logic ─────────────────────────────────
+
+  // 3. High incident owner → war-room
+  if (input.isIncidentOwner && input.incidentSeverity === "high") {
+    return "war-room";
+  }
+
+  // 4. Agent is down
   if (input.status === "down") {
     return "server-room";
   }
 
-  // 4-6. Task-based assignment
+  // 5-7. Task-based assignment
   if (input.activeTasks.length > 0) {
-    // Sort by priority (P0 first)
     const sorted = [...input.activeTasks].sort((a, b) => a.priority.localeCompare(b.priority));
     const topTask = sorted[0];
 
@@ -68,11 +85,11 @@ export function determineRoom(
     }
   }
 
-  // 7. Idle with no tasks → lounge
+  // 8. Idle with no tasks → lounge
   if (input.status === "idle" && input.activeTasks.length === 0) {
     return "lounge";
   }
 
-  // 8. Default
+  // 9. Default
   return agent.defaultRoom;
 }
