@@ -160,14 +160,24 @@ export async function GET(req: NextRequest) {
       WHERE status = 'queued' AND created_at < NOW() - INTERVAL '3 seconds'
     `);
 
+    const excludeAction = searchParams.get("exclude_action");
+
     const q = agent
-      ? await db.query(
-          `SELECT * FROM office_dispatches
-           WHERE target_agent = $1
-           ORDER BY created_at DESC
-           LIMIT $2`,
-          [agent, limit]
-        )
+      ? excludeAction
+        ? await db.query(
+            `SELECT * FROM office_dispatches
+             WHERE target_agent = $1 AND (action_type IS NULL OR action_type != $3)
+             ORDER BY created_at DESC
+             LIMIT $2`,
+            [agent, limit, excludeAction]
+          )
+        : await db.query(
+            `SELECT * FROM office_dispatches
+             WHERE target_agent = $1
+             ORDER BY created_at DESC
+             LIMIT $2`,
+            [agent, limit]
+          )
       : await db.query(
           `SELECT * FROM office_dispatches
            ORDER BY created_at DESC

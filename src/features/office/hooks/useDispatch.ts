@@ -5,9 +5,9 @@ import type { AgentDispatch, DispatchPayload } from "../types";
 const fetcher = (url: string) =>
   fetch(url).then((r) => r.json()).then((d) => d.data ?? []);
 
-// ── Dispatch history for a specific agent ─────────────────────────────────────
+// ── Dispatch history for a specific agent (excludes meeting messages) ────────
 export function useDispatchHistory(agentName: string | null) {
-  const key = agentName ? `/api/office/dispatch?agent=${agentName}&limit=20` : null;
+  const key = agentName ? `/api/office/dispatch?agent=${agentName}&limit=20&exclude_action=meeting_command` : null;
   return useSWR<AgentDispatch[]>(key, fetcher, {
     refreshInterval: 3_000, // Fast polling to see status transitions
   });
