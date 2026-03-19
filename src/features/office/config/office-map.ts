@@ -176,17 +176,21 @@ export const FURNITURE: Furniture[] = [
   { type: "chair",       x: 278, y: 230, w: 22,  h: 22 },
 
   // ═══════════════════ Diretoria (420,40 → 800,310) ═══════════════════════════
+  // João's desk — dual monitor setup
   { type: "desk",        x: 460, y: 120, w: 90,  h: 42 },
-  { type: "monitor",     x: 480, y: 115, w: 35,  h: 12 },
-  { type: "monitor",     x: 520, y: 116, w: 22,  h: 10, variant: 1 },
+  { type: "monitor",     x: 475, y: 115, w: 35,  h: 12 },
+  { type: "monitor",     x: 515, y: 116, w: 22,  h: 10, variant: 1 },
   { type: "chair",       x: 495, y: 175, w: 24,  h: 24 },
+  // Jota's desk — dual monitor setup
   { type: "desk",        x: 630, y: 120, w: 90,  h: 42 },
-  { type: "monitor",     x: 655, y: 115, w: 35,  h: 12 },
+  { type: "monitor",     x: 645, y: 115, w: 35,  h: 12 },
+  { type: "monitor",     x: 685, y: 116, w: 22,  h: 10, variant: 2 },
   { type: "chair",       x: 665, y: 175, w: 24,  h: 24 },
   { type: "bookshelf",   x: 430, y: 58,  w: 80,  h: 20 },
   { type: "painting",    x: 600, y: 58,  w: 50,  h: 30, variant: 0 },
   { type: "plant-big",   x: 760, y: 65,  w: 24,  h: 30 },
   { type: "filing-cabinet", x: 760, y: 130, w: 28, h: 38 },
+  { type: "printer",     x: 760, y: 180, w: 30,  h: 20 },
   { type: "rug",         x: 470, y: 200, w: 180, h: 70, color: "#3d2d5e" },
   { type: "lamp",        x: 435, y: 95,  w: 12,  h: 22 },
   { type: "clock",       x: 680, y: 58,  w: 16,  h: 16 },
@@ -210,28 +214,33 @@ export const FURNITURE: Furniture[] = [
   { type: "trash-can",   x: 860,  y: 270, w: 14,  h: 16 },
 
   // ═══════════════════ Desenvolvimento (40,360 → 580,620) ═════════════════════
-  // 3 rows of workstations
+  // Row 1 — dual monitor workstations (Caio, Clara, + 2 empty)
   { type: "desk",    x: 70,  y: 420, w: 75, h: 38 },
-  { type: "monitor", x: 85,  y: 415, w: 32, h: 12 },
+  { type: "monitor", x: 80,  y: 415, w: 28, h: 12 },
+  { type: "monitor", x: 112, y: 416, w: 20, h: 10, variant: 1 },
   { type: "chair",   x: 95,  y: 468, w: 22, h: 22 },
   { type: "desk",    x: 190, y: 420, w: 75, h: 38 },
-  { type: "monitor", x: 205, y: 415, w: 32, h: 12 },
+  { type: "monitor", x: 200, y: 415, w: 28, h: 12 },
+  { type: "monitor", x: 232, y: 416, w: 20, h: 10, variant: 2 },
   { type: "chair",   x: 218, y: 468, w: 22, h: 22 },
   { type: "desk",    x: 310, y: 420, w: 75, h: 38 },
-  { type: "monitor", x: 325, y: 415, w: 32, h: 12 },
+  { type: "monitor", x: 320, y: 415, w: 28, h: 12 },
+  { type: "monitor", x: 352, y: 416, w: 20, h: 10, variant: 1 },
   { type: "chair",   x: 338, y: 468, w: 22, h: 22 },
   { type: "desk",    x: 430, y: 420, w: 75, h: 38 },
-  { type: "monitor", x: 445, y: 415, w: 32, h: 12 },
+  { type: "monitor", x: 440, y: 415, w: 28, h: 12 },
+  { type: "monitor", x: 472, y: 416, w: 20, h: 10, variant: 2 },
   { type: "chair",   x: 458, y: 468, w: 22, h: 22 },
-  // Second row
+  // Row 2 — single monitor + laptop setups
   { type: "desk",    x: 120, y: 530, w: 75, h: 38 },
-  { type: "monitor", x: 135, y: 525, w: 32, h: 12 },
+  { type: "monitor", x: 135, y: 525, w: 28, h: 12 },
   { type: "chair",   x: 145, y: 520, w: 20, h: 20 },
   { type: "desk",    x: 250, y: 530, w: 75, h: 38 },
-  { type: "monitor", x: 265, y: 525, w: 32, h: 12 },
+  { type: "monitor", x: 265, y: 525, w: 28, h: 12 },
   { type: "chair",   x: 278, y: 520, w: 20, h: 20 },
   { type: "desk",    x: 380, y: 530, w: 75, h: 38 },
-  { type: "monitor", x: 395, y: 525, w: 32, h: 12 },
+  { type: "monitor", x: 395, y: 525, w: 28, h: 12 },
+  { type: "monitor", x: 427, y: 526, w: 18, h: 10, variant: 1 },
   { type: "chair",   x: 408, y: 520, w: 20, h: 20 },
   // Decor
   { type: "whiteboard", x: 55,  y: 378, w: 140, h: 16 },
@@ -241,22 +250,31 @@ export const FURNITURE: Furniture[] = [
   { type: "trash-can",  x: 540, y: 580, w: 14, h: 16 },
 
   // ═══════════════════ Operações (620,360 → 1000,620) ═════════════════════════
+  // Wall monitors (dashboards)
   { type: "tv",          x: 650, y: 378, w: 120, h: 14 },
   { type: "tv",          x: 800, y: 378, w: 80,  h: 14, variant: 1 },
+  // Letícia's desk — triple monitor NOC setup
   { type: "desk",        x: 650, y: 440, w: 80,  h: 38 },
-  { type: "monitor",     x: 668, y: 435, w: 32,  h: 12 },
+  { type: "monitor",     x: 658, y: 435, w: 28,  h: 12 },
+  { type: "monitor",     x: 690, y: 436, w: 22,  h: 10, variant: 1 },
   { type: "chair",       x: 680, y: 490, w: 22,  h: 22 },
+  // Desk 2 — dual monitor
   { type: "desk",        x: 780, y: 440, w: 80,  h: 38 },
-  { type: "monitor",     x: 798, y: 435, w: 32,  h: 12, variant: 1 },
+  { type: "monitor",     x: 790, y: 435, w: 28,  h: 12, variant: 1 },
+  { type: "monitor",     x: 822, y: 436, w: 22,  h: 10, variant: 2 },
   { type: "chair",       x: 810, y: 490, w: 22,  h: 22 },
+  // Server racks
   { type: "server-rack", x: 920, y: 400, w: 34,  h: 55 },
   { type: "server-rack", x: 920, y: 470, w: 34,  h: 55 },
   { type: "server-rack", x: 960, y: 400, w: 34,  h: 55 },
+  // Desk 3 — monitoring station
   { type: "desk",        x: 650, y: 550, w: 80,  h: 38 },
-  { type: "monitor",     x: 668, y: 545, w: 32,  h: 12 },
+  { type: "monitor",     x: 660, y: 545, w: 28,  h: 12 },
+  { type: "monitor",     x: 692, y: 546, w: 22,  h: 10, variant: 2 },
   { type: "chair",       x: 680, y: 540, w: 20,  h: 20 },
   { type: "lamp",        x: 880, y: 420, w: 12,  h: 22 },
   { type: "clock",       x: 640, y: 380, w: 14,  h: 14 },
+  { type: "printer",     x: 880, y: 540, w: 32,  h: 22 },
   { type: "trash-can",   x: 960, y: 570, w: 14,  h: 16 },
 
   // ═══════════════════ Copa (1040,360 → 1360,620) ═════════════════════════════
