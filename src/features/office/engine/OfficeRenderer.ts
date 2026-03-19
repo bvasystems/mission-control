@@ -492,40 +492,68 @@ function drawFurniture(ctx: CanvasRenderingContext2D, f: Furniture) {
     }
     case "monitor": {
       const variant = f.variant ?? 0;
+      // Make monitors visually taller — render at 1.6x height for visibility
+      const renderH = Math.max(f.h, 18);
+      const renderY = f.y - (renderH - f.h);
+
+      // Screen glow (subtle backlight)
+      const glowColors = [
+        "rgba(59,130,246,0.15)",
+        "rgba(168,85,247,0.15)",
+        "rgba(16,185,129,0.15)",
+      ];
+      ctx.save();
+      ctx.shadowColor = glowColors[variant % glowColors.length];
+      ctx.shadowBlur = 8;
+
       // Stand base
-      ctx.fillStyle = "#1a1a22";
-      const baseW = f.w * 0.3;
-      ctx.fillRect(f.x + f.w / 2 - baseW / 2, f.y + f.h - 1, baseW, 2);
-      // Stand neck
-      ctx.fillRect(f.x + f.w / 2 - 1, f.y + f.h - 3, 2, 4);
-      // Screen bezel
-      roundRect(ctx, f.x, f.y, f.w, f.h - 2, 2);
-      ctx.fillStyle = "#1a1a22";
+      ctx.fillStyle = "#222230";
+      const baseW = Math.max(f.w * 0.4, 10);
+      roundRect(ctx, f.x + f.w / 2 - baseW / 2, renderY + renderH, baseW, 3, 1);
       ctx.fill();
-      // Screen content
+      // Stand neck
+      ctx.fillRect(f.x + f.w / 2 - 1.5, renderY + renderH - 2, 3, 5);
+
+      // Screen bezel (darker, thicker frame)
+      roundRect(ctx, f.x - 1, renderY - 1, f.w + 2, renderH + 1, 3);
+      ctx.fillStyle = "#0a0a14";
+      ctx.fill();
+      ctx.restore();
+
+      // Screen content (brighter, more visible)
       const screenPad = 2;
       const screenColors = [
-        ["rgba(59,130,246,0.2)", "rgba(16,185,129,0.12)"],
-        ["rgba(168,85,247,0.2)", "rgba(236,72,153,0.12)"],
-        ["rgba(245,158,11,0.2)", "rgba(239,68,68,0.12)"],
+        ["rgba(59,130,246,0.55)", "rgba(16,185,129,0.35)"],
+        ["rgba(168,85,247,0.55)", "rgba(236,72,153,0.35)"],
+        ["rgba(34,197,94,0.50)",  "rgba(59,130,246,0.35)"],
       ];
       const [c1, c2] = screenColors[variant % screenColors.length];
-      const grad = ctx.createLinearGradient(f.x, f.y, f.x + f.w, f.y + f.h);
+      const grad = ctx.createLinearGradient(f.x, renderY, f.x + f.w, renderY + renderH);
       grad.addColorStop(0, c1);
       grad.addColorStop(1, c2);
+      roundRect(ctx, f.x + screenPad, renderY + screenPad, f.w - screenPad * 2, renderH - screenPad * 2 - 1, 1);
       ctx.fillStyle = grad;
-      ctx.fillRect(f.x + screenPad, f.y + screenPad, f.w - screenPad * 2, f.h - screenPad * 2 - 2);
-      // Screen text lines (fake content)
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      for (let i = 0; i < 3; i++) {
-        const lineW = (f.w - 8) * (0.5 + seededRandom(f.x + i * 7) * 0.4);
-        ctx.fillRect(f.x + 4, f.y + 3 + i * 2.5, lineW, 1);
+      ctx.fill();
+
+      // Screen content lines (brighter fake text/code)
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      const lineCount = Math.floor((renderH - 8) / 3);
+      for (let i = 0; i < lineCount; i++) {
+        const lineW = (f.w - 10) * (0.3 + seededRandom(f.x + i * 7) * 0.6);
+        ctx.fillRect(f.x + 5, renderY + 4 + i * 3, lineW, 1.2);
       }
-      // Bezel stroke
-      roundRect(ctx, f.x, f.y, f.w, f.h - 2, 2);
-      ctx.strokeStyle = "#2a2a34";
-      ctx.lineWidth = 0.8;
+
+      // Bezel border
+      roundRect(ctx, f.x - 1, renderY - 1, f.w + 2, renderH + 1, 3);
+      ctx.strokeStyle = "#333344";
+      ctx.lineWidth = 1;
       ctx.stroke();
+
+      // Power LED
+      ctx.beginPath();
+      ctx.arc(f.x + f.w / 2, renderY + renderH - 2, 1.2, 0, Math.PI * 2);
+      ctx.fillStyle = "#22c55e";
+      ctx.fill();
       break;
     }
     case "whiteboard": {
