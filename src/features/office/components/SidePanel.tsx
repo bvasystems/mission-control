@@ -630,12 +630,15 @@ function MeetingPanel() {
   const { send, sending } = useSendDispatch();
   const [lastSent, setLastSent] = useState<string | null>(null);
 
+  // Match agents by normalized name (strip accents) to align with config IDs
+  const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
   const inMeeting = agents?.filter((a) =>
-    meetingAgents.includes(a.name.toLowerCase()) || meetingAgents.includes(a.id?.toString())
+    meetingAgents.includes(normalize(a.name))
   ) ?? [];
 
   const available = agents?.filter((a) =>
-    !meetingAgents.includes(a.name.toLowerCase()) && !meetingAgents.includes(a.id?.toString())
+    !meetingAgents.includes(normalize(a.name))
   ) ?? [];
 
   const handleGroupSend = async () => {
@@ -685,7 +688,7 @@ function MeetingPanel() {
                   <p className="text-[10px] text-zinc-500">{a.status}</p>
                 </div>
                 <button
-                  onClick={() => removeFromMeeting(a.name.toLowerCase())}
+                  onClick={() => removeFromMeeting(normalize(a.name))}
                   className="text-zinc-600 hover:text-zinc-400 text-xs"
                 >
                   Dispensar
@@ -704,7 +707,7 @@ function MeetingPanel() {
             {available.map((a) => (
               <button
                 key={a.id}
-                onClick={() => addToMeeting(a.name.toLowerCase())}
+                onClick={() => addToMeeting(normalize(a.name))}
                 className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors text-left"
               >
                 <div className={`w-2 h-2 rounded-full ${STATUS_DOT[a.status]}`} />
@@ -751,8 +754,8 @@ function MeetingPanel() {
       {meetingAgents.length === 0 && (
         <button
           onClick={() => {
-            const allNames = agents?.map((a) => a.name.toLowerCase()) ?? [];
-            useOfficeStore.getState().callToMeeting(allNames);
+            const allIds = agents?.map((a) => normalize(a.name)) ?? [];
+            useOfficeStore.getState().callToMeeting(allIds);
           }}
           className="w-full py-3 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/20 text-indigo-300 text-sm transition-colors"
         >

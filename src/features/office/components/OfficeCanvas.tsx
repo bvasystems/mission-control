@@ -145,11 +145,21 @@ export function OfficeCanvas() {
         hasActiveDispatch: dispatchData?.hasActive ?? false,
       });
 
-      // If staying in default department → go to their desk (spawnX/Y)
-      // If moving to another room → go to room center with offset
       if (targetRoom === agentCfg.defaultRoom) {
+        // Stay at their desk
         setAgentTarget(state, agentCfg.id, agentCfg.spawnX, agentCfg.spawnY);
+      } else if (targetRoom === "sala-reuniao") {
+        // Sit in meeting room chairs (8 chairs around the table)
+        // Chairs: top row y=120, bottom row y=225, x from 980 to 1160
+        const meetingSeats = [
+          { x: 990, y: 120 }, { x: 1050, y: 120 }, { x: 1110, y: 120 }, { x: 1170, y: 120 },
+          { x: 990, y: 225 }, { x: 1050, y: 225 }, { x: 1110, y: 225 }, { x: 1170, y: 225 },
+        ];
+        const seatIdx = AGENTS.indexOf(agentCfg) % meetingSeats.length;
+        const seat = meetingSeats[seatIdx];
+        setAgentTarget(state, agentCfg.id, seat.x, seat.y);
       } else {
+        // Other rooms (copa, etc) → room center with offset
         const center = getRoomCenter(targetRoom);
         if (center) {
           const hash = agentCfg.id.charCodeAt(0) + agentCfg.id.charCodeAt(agentCfg.id.length - 1);
