@@ -440,7 +440,7 @@ function MeetingPanel() {
 
   // Meeting active — chat
   return (
-    <div className="flex flex-col h-full -my-4 -mx-5">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.06] shrink-0 bg-white/[0.02]">
         <div className="flex items-center justify-between mb-2.5">
@@ -904,8 +904,12 @@ export function SidePanel() {
             </div>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          {/* Content — meeting gerencia seu próprio scroll/layout */}
+          <div className={`flex-1 min-h-0 ${
+            activePanel === "meeting"
+              ? "flex flex-col"
+              : "overflow-y-auto px-5 py-4"
+          }`}>
             <PanelContent panel={activePanel} data={panelData} />
           </div>
         </div>
