@@ -1,7 +1,8 @@
-// ── Room Assignment — Department-Based with Idle Roaming ──────────────────────
-// Agents go to break areas when not actively working.
+// ── Room Assignment — with Idle Roaming ───────────────────────────────────────
+// Agents roam between leisure areas when not working, changing every ~45s.
 
 import type { AgentConfig } from "../config/office-map";
+import { IDLE_ROOMS } from "../config/office-map";
 
 export interface RoomAssignmentInput {
   status: "active" | "idle" | "degraded" | "down";
@@ -10,8 +11,13 @@ export interface RoomAssignmentInput {
   hasActiveDispatch: boolean;
 }
 
-// Idle spots: copa and recepcao positions where agents hang out
-const IDLE_ROOMS = ["copa", "recepcao"];
+// Roaming interval in ms — each agent changes area every ~45s
+const ROAM_INTERVAL = 45_000;
+
+// Each agent gets a time offset so they don't all move at the same time
+function agentHash(id: string): number {
+  return id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+}
 
 export function determineRoom(
   agent: AgentConfig,
@@ -32,9 +38,11 @@ export function determineRoom(
     return agent.defaultRoom;
   }
 
-  // 4. No work → go to break area
-  // Use agent id hash to deterministically pick a room so each agent
-  // goes to a consistent spot (not all to the same room)
-  const hash = agent.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return IDLE_ROOMS[hash % IDLE_ROOMS.length];
+  // 4. No work → roam between leisure areas
+  // Time-based rotation: each agent picks a different room over time
+  const hash = agentHash(agent.id);
+  const offset = hash * 11_000; // stagger so agents don't move in sync
+  const cycle = Math.floor((Date.now() + offset) / ROAM_INTERVAL);
+  const roomIndex = (cycle + hash) % IDLE_ROOMS.length;
+  return IDLE_ROOMS[roomIndex];
 }

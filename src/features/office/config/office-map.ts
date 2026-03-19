@@ -117,6 +117,31 @@ export const ROOMS: Room[] = [
       { side: "top", offset: 130, width: 55 },
     ],
   },
+
+  // ── Row 3 — Leisure areas ─────────────────────────────────────────────────
+  {
+    id: "salao-jogos", label: "Salão de Jogos",
+    x: 40, y: 660, w: 500, h: 200,
+    floorColor: "#1a1a2e", floorAccent: "#22224a", floorType: "carpet",
+    wallColor: "#4a3a6a", wallTop: "#6a5a8a",
+    labelColor: "#c084fc",
+    doors: [
+      { side: "top", offset: 220, width: 55 },
+      { side: "right", offset: 80, width: 55 },
+    ],
+  },
+  {
+    id: "jardim", label: "Jardim",
+    x: 580, y: 660, w: 780, h: 200,
+    floorColor: "#1a2e1a", floorAccent: "#223a20", floorType: "stone",
+    wallColor: "#3a5a3a", wallTop: "#5a7a5a",
+    labelColor: "#86efac",
+    doors: [
+      { side: "left", offset: 80, width: 55 },
+      { side: "top", offset: 200, width: 55 },
+      { side: "top", offset: 500, width: 55 },
+    ],
+  },
 ];
 
 // ── Furniture ─────────────────────────────────────────────────────────────────
@@ -248,6 +273,39 @@ export const FURNITURE: Furniture[] = [
   { type: "plant",         x: 1320, y: 580, w: 18,  h: 20 },
   { type: "lamp",          x: 1190, y: 460, w: 12,  h: 22 },
   { type: "painting",      x: 1200, y: 378, w: 50,  h: 30, variant: 1 },
+
+  // ═══════════════════ Salão de Jogos (40,660 → 540,860) ════════════════════
+  { type: "rug",           x: 70,  y: 700, w: 200, h: 130, color: "#2a1a4a" },
+  { type: "couch",         x: 80,  y: 710, w: 100, h: 38, color: "#6a3a8a" },
+  { type: "couch",         x: 80,  y: 790, w: 100, h: 38, color: "#6a3a8a" },
+  { type: "coffee-table",  x: 95,  y: 760, w: 70,  h: 24 },
+  { type: "tv",            x: 60,  y: 678, w: 160, h: 14, variant: 2 },
+  { type: "bookshelf",     x: 300, y: 678, w: 60,  h: 50 },
+  { type: "desk",          x: 380, y: 700, w: 80,  h: 38 },
+  { type: "monitor",       x: 398, y: 695, w: 32,  h: 12 },
+  { type: "chair",         x: 408, y: 748, w: 22,  h: 22 },
+  { type: "plant-big",     x: 490, y: 680, w: 26,  h: 34 },
+  { type: "lamp",          x: 195, y: 760, w: 12,  h: 22 },
+  { type: "water-cooler",  x: 490, y: 820, w: 16,  h: 28 },
+  { type: "trash-can",     x: 50,  y: 840, w: 14,  h: 16 },
+
+  // ═══════════════════ Jardim (580,660 → 1360,860) ══════════════════════════
+  { type: "potted-tree",   x: 610, y: 690, w: 34,  h: 44 },
+  { type: "potted-tree",   x: 730, y: 680, w: 30,  h: 40 },
+  { type: "potted-tree",   x: 1000, y: 685, w: 32, h: 42 },
+  { type: "potted-tree",   x: 1280, y: 690, w: 34, h: 44 },
+  { type: "plant-big",     x: 660, y: 820, w: 26,  h: 34 },
+  { type: "plant-big",     x: 900, y: 830, w: 28,  h: 34 },
+  { type: "plant-big",     x: 1180, y: 820, w: 26, h: 34 },
+  { type: "plant",         x: 820, y: 700, w: 18,  h: 20 },
+  { type: "plant",         x: 1100, y: 710, w: 18, h: 20 },
+  { type: "couch",         x: 780, y: 750, w: 100, h: 38, color: "#4a6a3a" },
+  { type: "couch",         x: 1050, y: 750, w: 100, h: 38, color: "#4a6a3a" },
+  { type: "coffee-table",  x: 820, y: 800, w: 60,  h: 24 },
+  { type: "coffee-table",  x: 1090, y: 800, w: 60, h: 24 },
+  { type: "lamp",          x: 750, y: 770, w: 12,  h: 22 },
+  { type: "lamp",          x: 1200, y: 770, w: 12, h: 22 },
+  { type: "aquarium",      x: 1260, y: 750, w: 60, h: 32 },
 ];
 
 // ── Hotspots ──────────────────────────────────────────────────────────────────
@@ -316,6 +374,8 @@ export const AGENTS: AgentConfig[] = [
 
 // ── Idle spots (where agents hang out when not working) ──────────────────────
 
+export const IDLE_ROOMS = ["copa", "recepcao", "salao-jogos", "jardim"] as const;
+
 export const IDLE_SPOTS: Record<string, Array<{ x: number; y: number }>> = {
   copa: [
     { x: 1100, y: 440 },  // near couch
@@ -327,6 +387,20 @@ export const IDLE_SPOTS: Record<string, Array<{ x: number; y: number }>> = {
     { x: 160, y: 200 },   // near plant
     { x: 200, y: 260 },   // center area
     { x: 130, y: 140 },   // by the bookshelf
+  ],
+  "salao-jogos": [
+    { x: 120, y: 740 },   // couch area
+    { x: 120, y: 810 },   // other couch
+    { x: 200, y: 770 },   // coffee table
+    { x: 420, y: 750 },   // arcade desk
+    { x: 350, y: 730 },   // bookshelf area
+  ],
+  jardim: [
+    { x: 830, y: 780 },   // bench 1
+    { x: 1100, y: 780 },  // bench 2
+    { x: 700, y: 750 },   // near tree
+    { x: 960, y: 760 },   // center path
+    { x: 1220, y: 770 },  // near aquarium
   ],
 };
 

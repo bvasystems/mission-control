@@ -2022,6 +2022,7 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
   const ROOM_ICONS: Record<string, string> = {
     "recepcao": "🏢", "diretoria": "👔", "sala-reuniao": "🎯",
     "desenvolvimento": "💻", "operacoes": "📊", "copa": "☕",
+    "salao-jogos": "🎮", "jardim": "🌿",
   };
 
   for (const room of ROOMS) {
