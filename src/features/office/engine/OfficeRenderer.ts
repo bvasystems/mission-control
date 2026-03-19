@@ -402,19 +402,7 @@ function drawRoom(ctx: CanvasRenderingContext2D, room: Room) {
   ctx.fillRect(x - WALL_H, y + h - WALL_THICKNESS, WALL_H + WALL_THICKNESS, WALL_H + WALL_THICKNESS);
   ctx.fillRect(x + w - WALL_THICKNESS, y + h - WALL_THICKNESS, WALL_H + WALL_THICKNESS, WALL_H + WALL_THICKNESS);
 
-  // ── Room label ────────────────────────────────────────────────────────────
-  ctx.fillStyle = room.labelColor;
-  ctx.font = "bold 11px 'Courier New', monospace";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  // Label background for readability
-  const labelText = room.label.toUpperCase();
-  const labelW = ctx.measureText(labelText).width + 12;
-  ctx.fillStyle = "rgba(0,0,0,0.35)";
-  roundRect(ctx, x + 6, y + 5, labelW, 16, 3);
-  ctx.fill();
-  ctx.fillStyle = room.labelColor;
-  ctx.fillText(labelText, x + 12, y + 8);
+  // Room label is drawn later as overlay (see drawRoomLabels)
 }
 
 // ── Furniture drawing ─────────────────────────────────────────────────────────
@@ -1983,6 +1971,34 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
     if (anim) {
       drawCharacter(ctx, agent, anim, state);
     }
+  }
+
+  // ── Room labels (drawn LAST as overlay, above everything) ────────────────
+  for (const room of ROOMS) {
+    const labelText = room.label.toUpperCase();
+    ctx.font = "bold 11px 'Inter', system-ui, sans-serif";
+    const metrics = ctx.measureText(labelText);
+    const labelW = metrics.width + 16;
+    const labelH = 20;
+    const lx = room.x + room.w / 2 - labelW / 2;
+    // Place above room if there's space, otherwise inside top
+    const ly = room.y > 50
+      ? room.y - WALL_H - labelH - 4
+      : room.y + 8;
+
+    // Background pill
+    roundRect(ctx, lx, ly, labelW, labelH, 5);
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.fill();
+    ctx.strokeStyle = room.wallTop;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Text
+    ctx.fillStyle = room.labelColor;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(labelText, room.x + room.w / 2, ly + labelH / 2);
   }
 
   // Restore camera transform
