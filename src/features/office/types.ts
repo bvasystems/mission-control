@@ -20,6 +20,8 @@ export interface AgentDispatch {
   status: DispatchState;
   metadata: Record<string, unknown>;
   issued_by: string;
+  response: string | null;
+  responded_at: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -16,11 +16,11 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["queued", "sent", "acknowledged", "blocked", "done", "failed"]),
+  status: z.enum(["queued", "sent", "acknowledged", "blocked", "done", "failed"]).optional(),
+  response: z.string().optional(),
 });
 
 // ── GET /api/office/dispatch ──────────────────────────────────────────────────
-// Returns dispatch history, optionally filtered by agent.
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(searchParams.get("limit") ?? 50), 200);
 
   try {
-    // Auto-progress stale dispatches:
+    // Auto-progress dispatches without responses:
     // queued > 3s → sent, sent > 8s → acknowledged, acknowledged > 20s → done
     await db.query(`
       UPDATE office_dispatches SET status = 'sent', updated_at = NOW()
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
 }
 
 // ── POST /api/office/dispatch ─────────────────────────────────────────────────
-// Creates a new dispatch or updates status of an existing one.
+// Creates a new dispatch, updates status, or adds a response.
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -78,20 +78,43 @@ export async function POST(req: NextRequest) {
 
   const bodyObj = body as Record<string, unknown>;
 
-  // ── Branch: status update ───────────────────────────────────────────────────
-  if (bodyObj?.id && bodyObj?.status) {
+  // ── Branch: update existing dispatch (status change or agent response) ─────
+  if (bodyObj?.id) {
     const parsed = updateSchema.safeParse(bodyObj);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
+    const { id, status, response } = parsed.data;
+
     try {
+      // Build dynamic SET clause
+      const sets: string[] = ["updated_at = NOW()"];
+      const vals: unknown[] = [];
+      let idx = 1;
+
+      if (status) {
+        sets.push(`status = $${idx++}`);
+        vals.push(status);
+      }
+      if (response) {
+        sets.push(`response = $${idx++}`);
+        vals.push(response);
+        sets.push(`responded_at = NOW()`);
+        // Auto-set to "done" when agent responds (if not already done/failed)
+        if (!status) {
+          sets.push(`status = CASE WHEN status NOT IN ('done', 'failed') THEN 'done' ELSE status END`);
+        }
+      }
+
+      vals.push(id);
+
       const q = await db.query(
         `UPDATE office_dispatches
-         SET status = $1, updated_at = NOW()
-         WHERE id = $2
+         SET ${sets.join(", ")}
+         WHERE id = $${idx}
          RETURNING *`,
-        [parsed.data.status, parsed.data.id]
+        vals
       );
 
       if (!q.rowCount) {

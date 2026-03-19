@@ -198,18 +198,18 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
       {/* Divider */}
       <div className="border-t border-white/[0.06]" />
 
-      {/* Command history */}
+      {/* Command history — chat-style */}
       <div>
         <button
           onClick={() => setShowHistory(!showHistory)}
           className="flex items-center justify-between w-full text-[10px] text-zinc-500 uppercase tracking-wider font-medium mb-2"
         >
-          <span>Histórico de comandos</span>
+          <span>Conversas</span>
           {showHistory ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
 
         {showHistory && (
-          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
             {historyLoading && <Loading />}
             {!historyLoading && (!history || history.length === 0) && (
               <p className="text-xs text-zinc-600 text-center py-3">Nenhum comando enviado ainda</p>
@@ -217,18 +217,59 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
             {history?.map((d: AgentDispatch) => {
               const sc = DISPATCH_STATUS_CONFIG[d.status];
               return (
-                <div key={d.id} className="flex items-start gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                  <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${sc.dot}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-zinc-300 break-words leading-relaxed">{d.command_text}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[10px] ${sc.color}`}>{sc.label}</span>
-                      <span className="text-[10px] text-zinc-600">{timeAgo(d.created_at)}</span>
-                      {d.action_type && (
-                        <span className="text-[10px] text-zinc-700 bg-white/[0.03] px-1 rounded">{d.action_type}</span>
-                      )}
+                <div key={d.id} className="space-y-1.5">
+                  {/* Sent command (right-aligned, like a chat) */}
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%] bg-indigo-600/20 border border-indigo-500/20 rounded-xl rounded-br-sm px-3 py-2">
+                      <p className="text-xs text-indigo-200 break-words leading-relaxed">{d.command_text}</p>
+                      <div className="flex items-center justify-end gap-2 mt-1">
+                        <span className="text-[10px] text-indigo-400/60">{timeAgo(d.created_at)}</span>
+                        <span className={`text-[10px] ${sc.color}`}>{sc.label}</span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Agent response (left-aligned) */}
+                  {d.response ? (
+                    <div className="flex justify-start">
+                      <div className="max-w-[85%] bg-white/[0.05] border border-white/[0.08] rounded-xl rounded-bl-sm px-3 py-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <div
+                            className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                            style={{ backgroundColor: agentColor(agent.name) }}
+                          >
+                            {agent.name.charAt(0)}
+                          </div>
+                          <span className="text-[10px] text-zinc-500 font-medium">{agent.name}</span>
+                        </div>
+                        <p className="text-xs text-zinc-200 break-words leading-relaxed">{d.response}</p>
+                        {d.responded_at && (
+                          <p className="text-[10px] text-zinc-600 mt-1">{timeAgo(d.responded_at)}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : d.status !== "done" && d.status !== "failed" ? (
+                    /* Waiting indicator */
+                    <div className="flex justify-start">
+                      <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl rounded-bl-sm px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-0.5">
+                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                          </div>
+                          <span className="text-[10px] text-zinc-600">Aguardando resposta...</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Done but no response */
+                    <div className="flex justify-start">
+                      <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl rounded-bl-sm px-3 py-1.5">
+                        <span className="text-[10px] text-zinc-600 italic">Sem resposta</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
