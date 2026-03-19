@@ -11,6 +11,8 @@ export type DispatchState =
   | "done"
   | "failed";
 
+export type DispatchDirection = "outbound" | "inbound";
+
 export interface AgentDispatch {
   id: string;
   target_agent: string;
@@ -18,6 +20,7 @@ export interface AgentDispatch {
   action_type: string | null;
   project_key: string | null;
   status: DispatchState;
+  direction: DispatchDirection;
   metadata: Record<string, unknown>;
   issued_by: string;
   response: string | null;

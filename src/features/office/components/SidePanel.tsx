@@ -216,21 +216,12 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
             )}
             {history?.map((d: AgentDispatch) => {
               const sc = DISPATCH_STATUS_CONFIG[d.status];
+              const isInbound = d.direction === "inbound";
+
               return (
                 <div key={d.id} className="space-y-1.5">
-                  {/* Sent command (right-aligned, like a chat) */}
-                  <div className="flex justify-end">
-                    <div className="max-w-[85%] bg-indigo-600/20 border border-indigo-500/20 rounded-xl rounded-br-sm px-3 py-2">
-                      <p className="text-xs text-indigo-200 break-words leading-relaxed">{d.command_text}</p>
-                      <div className="flex items-center justify-end gap-2 mt-1">
-                        <span className="text-[10px] text-indigo-400/60">{timeAgo(d.created_at)}</span>
-                        <span className={`text-[10px] ${sc.color}`}>{sc.label}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Agent response (left-aligned) */}
-                  {d.response ? (
+                  {/* ── Inbound message (agent → operator) ─────────────── */}
+                  {isInbound ? (
                     <div className="flex justify-start">
                       <div className="max-w-[85%] bg-white/[0.05] border border-white/[0.08] rounded-xl rounded-bl-sm px-3 py-2">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -241,34 +232,73 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
                             {agent.name.charAt(0)}
                           </div>
                           <span className="text-[10px] text-zinc-500 font-medium">{agent.name}</span>
+                          {d.metadata && typeof d.metadata === "object" && "source" in d.metadata && (
+                            <span className="text-[9px] text-zinc-700 bg-white/[0.04] px-1 rounded">via {String(d.metadata.source)}</span>
+                          )}
                         </div>
-                        <p className="text-xs text-zinc-200 break-words leading-relaxed">{d.response}</p>
-                        {d.responded_at && (
-                          <p className="text-[10px] text-zinc-600 mt-1">{timeAgo(d.responded_at)}</p>
-                        )}
-                      </div>
-                    </div>
-                  ) : d.status !== "done" && d.status !== "failed" ? (
-                    /* Waiting indicator */
-                    <div className="flex justify-start">
-                      <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl rounded-bl-sm px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex gap-0.5">
-                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                          </div>
-                          <span className="text-[10px] text-zinc-600">Aguardando resposta...</span>
-                        </div>
+                        <p className="text-xs text-zinc-200 break-words leading-relaxed">{d.command_text}</p>
+                        <p className="text-[10px] text-zinc-600 mt-1">{timeAgo(d.created_at)}</p>
                       </div>
                     </div>
                   ) : (
-                    /* Done but no response */
-                    <div className="flex justify-start">
-                      <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl rounded-bl-sm px-3 py-1.5">
-                        <span className="text-[10px] text-zinc-600 italic">Sem resposta</span>
+                    <>
+                      {/* ── Outbound command (operator → agent) ──────────── */}
+                      <div className="flex justify-end">
+                        <div className="max-w-[85%] bg-indigo-600/20 border border-indigo-500/20 rounded-xl rounded-br-sm px-3 py-2">
+                          <p className="text-xs text-indigo-200 break-words leading-relaxed">{d.command_text}</p>
+                          <div className="flex items-center justify-end gap-2 mt-1">
+                            <span className="text-[10px] text-indigo-400/60">{timeAgo(d.created_at)}</span>
+                            <span className={`text-[10px] ${sc.color}`}>{sc.label}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+
+                      {/* ── Agent response to outbound ───────────────────── */}
+                      {d.response ? (
+                        <div className="flex justify-start">
+                          <div className="max-w-[85%] bg-white/[0.05] border border-white/[0.08] rounded-xl rounded-bl-sm px-3 py-2">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <div
+                                className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                                style={{ backgroundColor: agentColor(agent.name) }}
+                              >
+                                {agent.name.charAt(0)}
+                              </div>
+                              <span className="text-[10px] text-zinc-500 font-medium">{agent.name}</span>
+                            </div>
+                            <p className="text-xs text-zinc-200 break-words leading-relaxed">{d.response}</p>
+                            {d.responded_at && (
+                              <p className="text-[10px] text-zinc-600 mt-1">{timeAgo(d.responded_at)}</p>
+                            )}
+                          </div>
+                        </div>
+                      ) : d.status === "failed" ? (
+                        <div className="flex justify-start">
+                          <div className="bg-red-500/5 border border-red-500/10 rounded-xl rounded-bl-sm px-3 py-1.5">
+                            <span className="text-[10px] text-red-400 italic">Timeout — sem resposta</span>
+                          </div>
+                        </div>
+                      ) : d.status !== "done" ? (
+                        <div className="flex justify-start">
+                          <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl rounded-bl-sm px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="flex gap-0.5">
+                                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                              </div>
+                              <span className="text-[10px] text-zinc-600">Aguardando resposta...</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-start">
+                          <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl rounded-bl-sm px-3 py-1.5">
+                            <span className="text-[10px] text-zinc-600 italic">Sem resposta</span>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );
