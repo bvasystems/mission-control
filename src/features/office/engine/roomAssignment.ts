@@ -1,39 +1,29 @@
 // ── Room Assignment — Department-Based ────────────────────────────────────────
-// Agents sit in their department. Only move for meetings, incidents, or breaks.
+// Simple: agents sit in their department. Only move when explicitly called to meeting or idle.
 
 import type { AgentConfig } from "../config/office-map";
 
 export interface RoomAssignmentInput {
   status: "active" | "idle" | "degraded" | "down";
-  hasActiveDispatch: boolean;
   isInMeeting: boolean;
-  isIncidentOwner: boolean;
-  incidentSeverity: string | null;
   hasActiveTasks: boolean;
+  hasActiveDispatch: boolean;
 }
 
 export function determineRoom(
   agent: AgentConfig,
   input: RoomAssignmentInput
 ): string {
-  // 1. Called to meeting → sala de reunião
+  // 1. Explicitly called to meeting → sala de reunião
   if (input.isInMeeting) {
     return "sala-reuniao";
   }
 
-  // 2. Critical incident → sala de reunião (war room style)
-  if (input.isIncidentOwner && input.incidentSeverity === "critical") {
-    return "sala-reuniao";
-  }
-
-  // 3. Active dispatch → stays in department (processes at their desk)
-  // (changed: agents don't need to walk to a "command center" to read a message)
-
-  // 4. Idle with no tasks → copa (break)
+  // 2. Idle with nothing to do → copa (break room)
   if (input.status === "idle" && !input.hasActiveTasks && !input.hasActiveDispatch) {
     return "copa";
   }
 
-  // 5. Default → agent's department
+  // 3. Everything else → agent stays in their department
   return agent.defaultRoom;
 }

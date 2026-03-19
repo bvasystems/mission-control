@@ -129,9 +129,6 @@ export function OfficeCanvas() {
         (t) => (t.owner?.toLowerCase() === nameKey || t.assigned_to?.toLowerCase() === nameKey) &&
                t.column !== "done"
       ) ?? [];
-      const ownedIncident = openIncidents.find(
-        (i) => i.owner?.toLowerCase() === nameKey
-      );
 
       // Simple activity
       activityMap.set(agentCfg.id, simpleActivity(
@@ -140,14 +137,12 @@ export function OfficeCanvas() {
         agentTasks.length > 0,
       ));
 
-      // Room assignment
+      // Room assignment — only meeting or department
       const targetRoom = determineRoom(agentCfg, {
         status: statusData?.status ?? "idle",
-        hasActiveDispatch: dispatchData?.hasActive ?? false,
         isInMeeting: meetingAgents.includes(agentCfg.id),
-        isIncidentOwner: !!ownedIncident,
-        incidentSeverity: ownedIncident?.severity ?? null,
         hasActiveTasks: agentTasks.length > 0,
+        hasActiveDispatch: dispatchData?.hasActive ?? false,
       });
 
       const center = getRoomCenter(targetRoom);
