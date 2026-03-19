@@ -12,10 +12,12 @@ import {
   useIncidents,
   useCrons,
   useStats,
+  useTasks,
   type Agent,
   type Project,
   type Incident,
   type CronJob,
+  type Task,
 } from "../hooks/useOfficeData";
 import { useDispatchHistory, useSendDispatch } from "../hooks/useDispatch";
 import { QUICK_ACTIONS, type AgentDispatch, type DispatchState } from "../types";
@@ -68,10 +70,13 @@ const PANEL_CONFIG: Record<string, { title: string; icon: React.ReactNode; route
 // ── Agent Detail Panel (EXPANDED) ─────────────────────────────────────────────
 function AgentDetailPanel({ agentId }: { agentId: string }) {
   const { data: agents } = useAgents();
+  const { data: allTasks } = useTasks();
   const { data: history, isLoading: historyLoading } = useDispatchHistory(agentId);
   const { send, sending, error: sendError } = useSendDispatch();
   const { commandDraft, setCommandDraft } = useOfficeStore();
   const [showHistory, setShowHistory] = useState(true);
+  const [showTasks, setShowTasks] = useState(true);
+  const [showTaskPicker, setShowTaskPicker] = useState(false);
   const [lastSent, setLastSent] = useState<string | null>(null);
 
   const agent = agents?.find(
@@ -79,6 +84,13 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   );
 
   if (!agent) return <p className="text-zinc-500 text-sm">Agente não encontrado</p>;
+
+  // Tasks assigned to this agent
+  const agentTasks = allTasks?.filter(
+    (t) => (t.owner?.toLowerCase() === agent.name.toLowerCase() ||
+            t.assigned_to?.toLowerCase() === agent.name.toLowerCase()) &&
+           t.column !== "done"
+  ) ?? [];
 
   const handleSend = async () => {
     if (!commandDraft.trim()) return;
@@ -90,6 +102,21 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
     if (result) {
       setLastSent(result.id);
       setCommandDraft("");
+      setTimeout(() => setLastSent(null), 3000);
+    }
+  };
+
+  const handleDelegateTask = async (task: Task) => {
+    setShowTaskPicker(false);
+    const result = await send({
+      targetAgent: agent.name.toLowerCase(),
+      commandText: `Tarefa delegada: ${task.title}`,
+      actionType: "delegate_task",
+      taskId: task.id,
+      projectKey: task.project_key ?? undefined,
+    });
+    if (result) {
+      setLastSent(result.id);
       setTimeout(() => setLastSent(null), 3000);
     }
   };
@@ -142,6 +169,40 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
       {/* Divider */}
       <div className="border-t border-white/[0.06]" />
 
+      {/* Active tasks */}
+      {agentTasks.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowTasks(!showTasks)}
+            className="flex items-center justify-between w-full text-[10px] text-zinc-500 uppercase tracking-wider font-medium mb-2"
+          >
+            <span>Tasks ativas ({agentTasks.length})</span>
+            {showTasks ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          {showTasks && (
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {agentTasks.map((t: Task) => (
+                <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                    t.priority === "P0" ? "bg-red-500/20 text-red-400" :
+                    t.priority === "P1" ? "bg-yellow-500/20 text-yellow-400" :
+                    "bg-zinc-500/20 text-zinc-400"
+                  }`}>{t.priority}</span>
+                  <p className="text-xs text-zinc-300 truncate flex-1">{t.title}</p>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                    t.column === "blocked" ? "bg-red-500/10 text-red-400" :
+                    t.column === "in_progress" ? "bg-blue-500/10 text-blue-400" :
+                    t.column === "review" ? "bg-purple-500/10 text-purple-400" :
+                    "bg-zinc-500/10 text-zinc-500"
+                  }`}>{t.column}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="border-t border-white/[0.06] mt-3" />
+        </div>
+      )}
+
       {/* Quick actions */}
       <div>
         <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-medium">Ações rápidas</p>
@@ -149,7 +210,13 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
           {QUICK_ACTIONS.map((action) => (
             <button
               key={action.id}
-              onClick={() => handleQuickAction(action.actionType, action.commandTemplate)}
+              onClick={() => {
+                if (action.actionType === "delegate_task") {
+                  setShowTaskPicker(!showTaskPicker);
+                } else {
+                  handleQuickAction(action.actionType, action.commandTemplate);
+                }
+              }}
               disabled={sending}
               className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/[0.12] transition-all text-left text-xs text-zinc-300 hover:text-white disabled:opacity-50"
             >
@@ -158,6 +225,33 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
             </button>
           ))}
         </div>
+
+        {/* Task picker for "Delegar tarefa" */}
+        {showTaskPicker && (
+          <div className="mt-2 border border-white/[0.08] rounded-lg bg-white/[0.02] max-h-48 overflow-y-auto">
+            <p className="text-[10px] text-zinc-500 px-3 py-2 border-b border-white/[0.06] sticky top-0 bg-zinc-950/95">
+              Selecionar task para delegar:
+            </p>
+            {allTasks?.filter((t) => t.column !== "done").slice(0, 20).map((t: Task) => (
+              <button
+                key={t.id}
+                onClick={() => handleDelegateTask(t)}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.05] transition-colors text-left border-b border-white/[0.03] last:border-0"
+              >
+                <span className={`text-[8px] font-bold px-1 py-0.5 rounded shrink-0 ${
+                  t.priority === "P0" ? "bg-red-500/20 text-red-400" :
+                  t.priority === "P1" ? "bg-yellow-500/20 text-yellow-400" :
+                  "bg-zinc-500/20 text-zinc-400"
+                }`}>{t.priority}</span>
+                <span className="text-xs text-zinc-300 truncate flex-1">{t.title}</span>
+                <span className="text-[9px] text-zinc-600 shrink-0">{t.column}</span>
+              </button>
+            ))}
+            {(!allTasks || allTasks.filter((t) => t.column !== "done").length === 0) && (
+              <p className="text-xs text-zinc-600 text-center py-4">Nenhuma task disponível</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Command input */}

@@ -23,6 +23,7 @@ export interface AgentDispatch {
   direction: DispatchDirection;
   metadata: Record<string, unknown>;
   issued_by: string;
+  task_id: string | null;
   response: string | null;
   responded_at: string | null;
   created_at: string;
@@ -34,6 +35,7 @@ export interface DispatchPayload {
   commandText: string;
   actionType?: string;
   projectKey?: string;
+  taskId?: string;
   metadata?: Record<string, unknown>;
 }
 

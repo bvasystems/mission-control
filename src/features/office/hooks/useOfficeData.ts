@@ -87,3 +87,26 @@ export function useStats() {
     refreshInterval: 30_000,
   });
 }
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+export interface Task {
+  id: string;
+  dem_id: string;
+  title: string;
+  objective: string;
+  type: "n8n" | "code" | "bug" | "improvement";
+  priority: "P0" | "P1" | "P2";
+  status: string;
+  column: string;
+  owner: string | null;
+  assigned_to: string | null;
+  project_key: string | null;
+  progress: number | null;
+  created_at: string;
+}
+
+export function useTasks() {
+  return useSWR<Task[]>("/api/dashboard/tasks", fetcher, {
+    refreshInterval: 30_000,
+  });
+}

@@ -11,6 +11,7 @@ const createSchema = z.object({
   commandText: z.string().min(1),
   actionType: z.string().optional(),
   projectKey: z.string().optional(),
+  taskId: z.string().uuid().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -141,14 +142,15 @@ export async function POST(req: NextRequest) {
   try {
     const q = await db.query(
       `INSERT INTO office_dispatches
-         (target_agent, command_text, action_type, project_key, status, metadata, issued_by)
-       VALUES ($1, $2, $3, $4, 'queued', $5::jsonb, 'joao')
+         (target_agent, command_text, action_type, project_key, task_id, status, metadata, issued_by)
+       VALUES ($1, $2, $3, $4, $5, 'queued', $6::jsonb, 'joao')
        RETURNING *`,
       [
         d.targetAgent,
         d.commandText,
         d.actionType ?? null,
         d.projectKey ?? null,
+        d.taskId ?? null,
         JSON.stringify(d.metadata ?? {}),
       ]
     );
