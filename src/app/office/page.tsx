@@ -145,7 +145,7 @@ export default function OfficePage() {
   }, [closePanel]);
 
   return (
-    <div className="h-full flex flex-col bg-transparent text-zinc-100 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden z-30">
       <OfficeStatusBar />
       <OfficeCanvas />
       <OfficeHelpBar />
