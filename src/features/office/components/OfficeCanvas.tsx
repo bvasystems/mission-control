@@ -37,6 +37,7 @@ export function OfficeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
+  const keysRef = useRef<Set<string>>(new Set());
   const stateRef = useRef<RenderState>({
     hoveredEntity: null,
     hoveredHotspot: null,
@@ -46,6 +47,8 @@ export function OfficeCanvas() {
     agentDispatches: new Map(),
     agentAnims: new Map(),
     alertRooms: new Map(),
+    cameraX: 0,
+    cameraY: 0,
     time: 0,
     lastTime: 0,
   });
@@ -108,8 +111,9 @@ export function OfficeCanvas() {
     }
     state.alertRooms = alertMap;
 
-    // 4. Room assignment per agent
+    // 4. Room assignment per agent (skip João — player controlled)
     for (const agentCfg of AGENTS) {
+      if (agentCfg.id === "joao") continue; // Player-controlled
       const nameKey = agentCfg.name.toLowerCase();
       const statusData = statusMap.get(nameKey);
       const dispatchData = dispatchMap.get(nameKey);
@@ -156,6 +160,51 @@ export function OfficeCanvas() {
     };
   }, []);
 
+  // ── Keyboard input (WASD / Arrow keys) ───────────────────────────────────────
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+        e.preventDefault();
+        keysRef.current.add(key);
+        updateJoaoVelocity();
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      keysRef.current.delete(e.key.toLowerCase());
+      updateJoaoVelocity();
+    };
+
+    function updateJoaoVelocity() {
+      const keys = keysRef.current;
+      const joao = stateRef.current.agentAnims.get("joao");
+      if (!joao) return;
+
+      let vx = 0, vy = 0;
+      if (keys.has("w") || keys.has("arrowup")) vy -= 1;
+      if (keys.has("s") || keys.has("arrowdown")) vy += 1;
+      if (keys.has("a") || keys.has("arrowleft")) vx -= 1;
+      if (keys.has("d") || keys.has("arrowright")) vx += 1;
+
+      // Normalize diagonal
+      if (vx !== 0 && vy !== 0) {
+        const len = Math.sqrt(vx * vx + vy * vy);
+        vx /= len;
+        vy /= len;
+      }
+
+      joao.velX = vx;
+      joao.velY = vy;
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
+
   // ── Mouse move ──────────────────────────────────────────────────────────────
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -163,8 +212,8 @@ export function OfficeCanvas() {
       const canvas = canvasRef.current;
 
       const agent = hitTestAgent(x, y, stateRef.current);
-      const hotspot = hitTestHotspot(x, y);
-      const room = !agent && !hotspot ? hitTestRoom(x, y) : null;
+      const hotspot = hitTestHotspot(x, y, stateRef.current);
+      const room = !agent && !hotspot ? hitTestRoom(x, y, stateRef.current) : null;
 
       stateRef.current.hoveredEntity = agent?.id ?? null;
       stateRef.current.hoveredHotspot = hotspot?.id ?? null;
@@ -186,11 +235,11 @@ export function OfficeCanvas() {
       const agent = hitTestAgent(x, y, stateRef.current);
       if (agent) { selectAgent(agent.id); return; }
 
-      const hotspot = hitTestHotspot(x, y);
+      const hotspot = hitTestHotspot(x, y, stateRef.current);
       if (hotspot) { openPanel(hotspot.actionTarget as PanelType); return; }
 
       // Room click — open contextual panel
-      const room = hitTestRoom(x, y);
+      const room = hitTestRoom(x, y, stateRef.current);
       if (room) {
         const panel = ROOM_PANEL_MAP[room.id];
         if (panel) openPanel(panel);

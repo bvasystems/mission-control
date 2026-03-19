@@ -32,6 +32,9 @@ export interface AgentAnimState {
   walking: boolean;
   walkCycle: number; // 0-3 frame counter
   idleBob: number;
+  isPlayerControlled?: boolean;
+  velX?: number;
+  velY?: number;
 }
 
 export interface RenderState {
@@ -43,6 +46,8 @@ export interface RenderState {
   agentDispatches: Map<string, AgentDispatchIndicator>;
   agentAnims: Map<string, AgentAnimState>;
   alertRooms: Map<string, "warning" | "critical">;
+  cameraX: number;
+  cameraY: number;
   time: number;
   lastTime: number;
 }
@@ -1763,13 +1768,28 @@ function drawCharacter(
 
 // ── Movement system ───────────────────────────────────────────────────────────
 
+// ── Walkable area check (rooms + corridor) ────────────────────────────────────
+function isWalkable(x: number, y: number): boolean {
+  // Inside any room is walkable
+  for (const room of ROOMS) {
+    if (x >= room.x + 8 && x <= room.x + room.w - 8 &&
+        y >= room.y + 8 && y <= room.y + room.h - 8) {
+      return true;
+    }
+  }
+  // Corridor area between rooms (generous bounds)
+  if (x >= 30 && x <= CANVAS_W - 30 && y >= 30 && y <= CANVAS_H - 30) {
+    return true;
+  }
+  return false;
+}
+
 export function updateAgentMovement(state: RenderState, deltaMs: number) {
   const deltaSec = deltaMs / 1000;
 
   for (const agent of AGENTS) {
     let anim = state.agentAnims.get(agent.id);
     if (!anim) {
-      // Initialize
       anim = {
         x: agent.spawnX,
         y: agent.spawnY,
@@ -1779,29 +1799,81 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
         walking: false,
         walkCycle: 0,
         idleBob: Math.random() * Math.PI * 2,
+        isPlayerControlled: agent.id === "joao",
+        velX: 0,
+        velY: 0,
       };
       state.agentAnims.set(agent.id, anim);
     }
 
+    // Player-controlled agent (João)
+    if (anim.isPlayerControlled) {
+      const vx = anim.velX ?? 0;
+      const vy = anim.velY ?? 0;
+      const isMoving = vx !== 0 || vy !== 0;
+
+      if (isMoving) {
+        const speed = WALK_SPEED * 1.2; // Player moves slightly faster
+        const newX = anim.x + vx * speed * deltaSec;
+        const newY = anim.y + vy * speed * deltaSec;
+
+        // Collision check
+        if (isWalkable(newX, newY)) {
+          anim.x = Math.max(20, Math.min(CANVAS_W - 20, newX));
+          anim.y = Math.max(20, Math.min(CANVAS_H - 20, newY));
+        } else {
+          // Try sliding along walls
+          if (isWalkable(newX, anim.y)) {
+            anim.x = Math.max(20, Math.min(CANVAS_W - 20, newX));
+          } else if (isWalkable(anim.x, newY)) {
+            anim.y = Math.max(20, Math.min(CANVAS_H - 20, newY));
+          }
+        }
+
+        // Direction
+        if (Math.abs(vx) > Math.abs(vy)) {
+          anim.direction = vx > 0 ? "right" : "left";
+        } else {
+          anim.direction = vy > 0 ? "down" : "up";
+        }
+
+        anim.walking = true;
+        anim.walkCycle += WALK_FRAME_RATE * deltaSec;
+        if (anim.walkCycle >= 4) anim.walkCycle -= 4;
+      } else {
+        anim.walking = false;
+      }
+
+      // Keep target synced to current position
+      anim.targetX = anim.x;
+      anim.targetY = anim.y;
+
+      // Update camera to follow João (smooth lerp)
+      const camTargetX = Math.max(0, Math.min(CANVAS_W * 0.3, anim.x - CANVAS_W / 2));
+      const camTargetY = Math.max(0, Math.min(CANVAS_H * 0.3, anim.y - CANVAS_H / 2));
+      state.cameraX += (camTargetX - state.cameraX) * 0.05;
+      state.cameraY += (camTargetY - state.cameraY) * 0.05;
+
+      continue;
+    }
+
+    // AI-controlled agents (target-based movement)
     const dx = anim.targetX - anim.x;
     const dy = anim.targetY - anim.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist > 2) {
-      // Move toward target
       anim.walking = true;
       const step = Math.min(WALK_SPEED * deltaSec, dist);
       anim.x += (dx / dist) * step;
       anim.y += (dy / dist) * step;
 
-      // Update direction
       if (Math.abs(dx) > Math.abs(dy)) {
         anim.direction = dx > 0 ? "right" : "left";
       } else {
         anim.direction = dy > 0 ? "down" : "up";
       }
 
-      // Walk cycle
       anim.walkCycle += WALK_FRAME_RATE * deltaSec;
       if (anim.walkCycle >= 4) anim.walkCycle -= 4;
     } else {
@@ -1832,6 +1904,10 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
 
   // Clear
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Apply camera transform (subtle edge panning)
+  ctx.save();
+  ctx.translate(-state.cameraX, -state.cameraY);
 
   // Outdoor border (grass + trees)
   drawOutdoorBorder(ctx);
@@ -1908,16 +1984,22 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
       drawCharacter(ctx, agent, anim, state);
     }
   }
+
+  // Restore camera transform
+  ctx.restore();
 }
 
 // ── Hit testing ───────────────────────────────────────────────────────────────
 
 export function hitTestAgent(mx: number, my: number, state: RenderState): AgentConfig | null {
+  // Account for camera offset
+  const wmx = mx + state.cameraX;
+  const wmy = my + state.cameraY;
   for (const agent of AGENTS) {
     const anim = state.agentAnims.get(agent.id);
     if (!anim) continue;
-    const dx = mx - anim.x;
-    const dy = my - anim.y;
+    const dx = wmx - anim.x;
+    const dy = wmy - anim.y;
     // Hit area is roughly the character body
     if (Math.abs(dx) < 18 && dy > -HEAD_R * 2 - CHAR_H / 2 && dy < CHAR_H / 2 + 6) {
       return agent;
@@ -1926,22 +2008,25 @@ export function hitTestAgent(mx: number, my: number, state: RenderState): AgentC
   return null;
 }
 
-export function hitTestHotspot(mx: number, my: number): Hotspot | null {
+export function hitTestHotspot(mx: number, my: number, state?: RenderState): Hotspot | null {
+  const wmx = mx + (state?.cameraX ?? 0);
+  const wmy = my + (state?.cameraY ?? 0);
   for (const hs of HOTSPOTS) {
-    // Expand hit area slightly for better UX
     const pad = 6;
-    if (mx >= hs.x - pad && mx <= hs.x + hs.w + pad &&
-        my >= hs.y - pad && my <= hs.y + hs.h + pad) {
+    if (wmx >= hs.x - pad && wmx <= hs.x + hs.w + pad &&
+        wmy >= hs.y - pad && wmy <= hs.y + hs.h + pad) {
       return hs;
     }
   }
   return null;
 }
 
-export function hitTestRoom(mx: number, my: number): Room | null {
+export function hitTestRoom(mx: number, my: number, state?: RenderState): Room | null {
+  const wmx = mx + (state?.cameraX ?? 0);
+  const wmy = my + (state?.cameraY ?? 0);
   for (const room of ROOMS) {
-    if (mx >= room.x && mx <= room.x + room.w &&
-        my >= room.y && my <= room.y + room.h) {
+    if (wmx >= room.x && wmx <= room.x + room.w &&
+        wmy >= room.y && wmy <= room.y + room.h) {
       return room;
     }
   }
