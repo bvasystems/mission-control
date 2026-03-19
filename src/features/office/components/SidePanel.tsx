@@ -19,7 +19,7 @@ import {
   type CronJob,
   type Task,
 } from "../hooks/useOfficeData";
-import { useDispatchHistory, useSendDispatch } from "../hooks/useDispatch";
+import { useDispatchHistory, useAllDispatches, useSendDispatch } from "../hooks/useDispatch";
 import { QUICK_ACTIONS, type AgentDispatch, type DispatchState } from "../types";
 import Link from "next/link";
 
@@ -625,136 +625,39 @@ function timeAgo(dateStr: string | null): string {
 // ── Meeting Panel ─────────────────────────────────────────────────────────────
 function MeetingPanel() {
   const { data: agents } = useAgents();
+  const { data: recentDispatches } = useAllDispatches();
   const { meetingAgents, addToMeeting, removeFromMeeting, dismissMeeting } = useOfficeStore();
   const { commandDraft, setCommandDraft } = useOfficeStore();
   const { send, sending } = useSendDispatch();
-  const [lastSent, setLastSent] = useState<string | null>(null);
 
-  // Use agent DB id for matching (consistent with config ids)
   const agentKey = (a: Agent) => a.id?.toString() ?? a.name.toLowerCase();
+  const inMeeting = agents?.filter((a) => meetingAgents.includes(agentKey(a))) ?? [];
+  const available = agents?.filter((a) => !meetingAgents.includes(agentKey(a))) ?? [];
 
-  const inMeeting = agents?.filter((a) =>
-    meetingAgents.includes(agentKey(a))
-  ) ?? [];
+  // Meeting feed: recent meeting_command dispatches
+  const meetingFeed = (recentDispatches?.filter(
+    (d) => d.action_type === "meeting_command"
+  ) ?? []).slice(0, 30);
 
-  const available = agents?.filter((a) =>
-    !meetingAgents.includes(agentKey(a))
-  ) ?? [];
+  const agentName = (id: string) => agents?.find((a) => agentKey(a) === id)?.name ?? id;
 
   const handleGroupSend = async () => {
     if (!commandDraft.trim() || meetingAgents.length === 0) return;
-    for (const agentName of meetingAgents) {
-      await send({
-        targetAgent: agentName,
-        commandText: commandDraft.trim(),
-        actionType: "meeting_command",
-      });
-    }
-    setLastSent("group");
+    const text = commandDraft.trim();
     setCommandDraft("");
-    setTimeout(() => setLastSent(null), 3000);
+    const targets = meetingAgents.filter((id) => id !== "joao");
+    for (const agentId of targets) {
+      await send({ targetAgent: agentId, commandText: text, actionType: "meeting_command" });
+    }
   };
 
-  return (
-    <div className="space-y-5">
-      {/* Meeting status */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-white font-semibold text-sm">
-            {meetingAgents.length > 0 ? `${meetingAgents.length} na reunião` : "Nenhuma reunião ativa"}
-          </p>
-          <p className="text-zinc-500 text-xs">Sala de Reunião</p>
-        </div>
-        {meetingAgents.length > 0 && (
-          <button
-            onClick={dismissMeeting}
-            className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors"
-          >
-            Encerrar
-          </button>
-        )}
-      </div>
-
-      {/* Agents in meeting */}
-      {inMeeting.length > 0 && (
-        <div>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-medium">Na reunião</p>
-          <div className="space-y-1.5">
-            {inMeeting.map((a) => (
-              <div key={a.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/15">
-                <div className={`w-2.5 h-2.5 rounded-full ${STATUS_DOT[a.status]}`} />
-                <div className="flex-1">
-                  <p className="text-sm text-white">{a.name}</p>
-                  <p className="text-[10px] text-zinc-500">{a.status}</p>
-                </div>
-                <button
-                  onClick={() => removeFromMeeting(agentKey(a))}
-                  className="text-zinc-600 hover:text-zinc-400 text-xs"
-                >
-                  Dispensar
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Add agents */}
-      {available.length > 0 && (
-        <div>
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-medium">Chamar para reunião</p>
-          <div className="space-y-1">
-            {available.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => addToMeeting(agentKey(a))}
-                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors text-left"
-              >
-                <div className={`w-2 h-2 rounded-full ${STATUS_DOT[a.status]}`} />
-                <span className="text-xs text-zinc-300">{a.name}</span>
-                <span className="text-[10px] text-zinc-600 ml-auto">+ Chamar</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Group command */}
-      {meetingAgents.length > 0 && (
-        <div>
-          <div className="border-t border-white/[0.06] mb-3" />
-          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-medium">Comando para todos</p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={commandDraft}
-              onChange={(e) => setCommandDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleGroupSend(); }}
-              placeholder="Mensagem para a reunião..."
-              disabled={sending}
-              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
-            />
-            <button
-              onClick={handleGroupSend}
-              disabled={sending || !commandDraft.trim()}
-              className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white transition-colors text-sm shrink-0"
-            >
-              <Send size={14} />
-            </button>
-          </div>
-          {lastSent && (
-            <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
-              <CheckCircle2 size={12} /> Comando enviado para {meetingAgents.length} agentes
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Call all shortcut */}
-      {meetingAgents.length === 0 && (
+  // ── No meeting active ──────────────────────────────────────────────────────
+  if (meetingAgents.length === 0) {
+    return (
+      <div className="space-y-4">
+        <p className="text-zinc-500 text-sm text-center py-4">Nenhuma reunião ativa</p>
         <button
           onClick={() => {
-            // Use DB ids + add "joao" (operator, not in agents_status table)
             const allIds = agents?.map((a) => agentKey(a)) ?? [];
             if (!allIds.includes("joao")) allIds.push("joao");
             useOfficeStore.getState().callToMeeting(allIds);
@@ -763,7 +666,114 @@ function MeetingPanel() {
         >
           Chamar todos para reunião
         </button>
-      )}
+        {available.length > 0 && (
+          <div>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">Ou selecione agentes:</p>
+            <div className="flex flex-wrap gap-1">
+              {available.map((a) => (
+                <button key={a.id} onClick={() => addToMeeting(agentKey(a))}
+                  className="text-xs px-2.5 py-1 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 transition-colors">
+                  + {a.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Meeting active — chat interface ─────────────────────────────────────────
+  return (
+    <div className="flex flex-col h-full -my-4 -mx-5">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-white/[0.06] shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-white font-semibold">Reunião</span>
+          <button onClick={dismissMeeting} className="text-[10px] text-red-400 hover:text-red-300 px-2 py-0.5 rounded bg-red-500/10">
+            Encerrar
+          </button>
+        </div>
+        {/* Participants */}
+        <div className="flex flex-wrap gap-1">
+          {meetingAgents.includes("joao") && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300">João (você)</span>
+          )}
+          {inMeeting.map((a) => (
+            <span key={a.id} className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 flex items-center gap-1">
+              <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[a.status]}`} />
+              {a.name}
+              <button onClick={() => removeFromMeeting(agentKey(a))} className="text-zinc-600 hover:text-zinc-400">&times;</button>
+            </span>
+          ))}
+          {available.length > 0 && (
+            <button onClick={() => {
+              available.forEach((a) => addToMeeting(agentKey(a)));
+            }} className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.04] text-zinc-500 hover:text-zinc-300">
+              + mais
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Chat feed */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
+        {meetingFeed.length === 0 && (
+          <p className="text-xs text-zinc-600 text-center py-8">Envie uma mensagem para iniciar a conversa</p>
+        )}
+        {[...meetingFeed].reverse().map((d) => (
+          <div key={d.id} className="space-y-1">
+            {/* Your message */}
+            <div className="flex justify-end">
+              <div className="max-w-[80%] bg-blue-600/20 border border-blue-500/15 rounded-xl rounded-br-sm px-3 py-1.5">
+                <p className="text-xs text-blue-200 break-words">{d.command_text}</p>
+                <span className="text-[9px] text-blue-400/40">→ {agentName(d.target_agent)} · {timeAgo(d.created_at)}</span>
+              </div>
+            </div>
+            {/* Agent response */}
+            {d.response ? (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] bg-white/[0.04] border border-white/[0.06] rounded-xl rounded-bl-sm px-3 py-1.5">
+                  <span className="text-[10px] text-zinc-500 font-medium">{agentName(d.target_agent)}</span>
+                  <p className="text-xs text-zinc-200 break-words">{d.response}</p>
+                  <span className="text-[9px] text-zinc-600">{timeAgo(d.responded_at ?? d.updated_at)}</span>
+                </div>
+              </div>
+            ) : d.status === "failed" ? (
+              <div className="flex justify-start">
+                <span className="text-[10px] text-red-400/60 px-3">{agentName(d.target_agent)}: timeout</span>
+              </div>
+            ) : (
+              <div className="flex justify-start">
+                <div className="px-3 py-1 flex items-center gap-1">
+                  <span className="text-[10px] text-zinc-600">{agentName(d.target_agent)}</span>
+                  <span className="w-1 h-1 bg-zinc-600 rounded-full animate-bounce" />
+                  <span className="w-1 h-1 bg-zinc-600 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1 h-1 bg-zinc-600 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Input */}
+      <div className="px-4 py-3 border-t border-white/[0.06] shrink-0">
+        <div className="flex gap-2">
+          <input
+            type="text" value={commandDraft}
+            onChange={(e) => setCommandDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleGroupSend(); }}
+            placeholder="Mensagem para a reunião..."
+            disabled={sending}
+            className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+          />
+          <button onClick={handleGroupSend} disabled={sending || !commandDraft.trim()}
+            className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white transition-colors text-sm shrink-0">
+            <Send size={14} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

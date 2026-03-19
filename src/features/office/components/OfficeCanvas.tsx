@@ -192,7 +192,12 @@ export function OfficeCanvas() {
 
   // ── Keyboard input ──────────────────────────────────────────────────────────
   useEffect(() => {
+    const isTyping = () => {
+      const tag = document.activeElement?.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.getAttribute("contenteditable") === "true";
+    };
     const onKeyDown = (e: KeyboardEvent) => {
+      if (isTyping()) return; // Don't capture WASD when typing in inputs
       const key = e.key.toLowerCase();
       if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
         e.preventDefault();
