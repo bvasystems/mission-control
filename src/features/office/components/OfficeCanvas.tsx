@@ -18,21 +18,31 @@ import { getRoomCenter } from "../config/office-map";
 import { useOfficeStore, type PanelType } from "../store";
 import { useAgents, useIncidents, useTasks } from "../hooks/useOfficeData";
 import { useAllDispatches } from "../hooks/useDispatch";
-import { computeActivity } from "../engine/activityEngine";
 import { determineRoom } from "../engine/roomAssignment";
+import type { AgentActivity } from "../types";
 
 // ── Room → Panel mapping ──────────────────────────────────────────────────────
 const ROOM_PANEL_MAP: Record<string, PanelType> = {
+  "recepcao": "agents",
   "diretoria": "agents",
-  "sprint-room": "projects",
-  "war-room": "incidents",
-  "dev-area": "kanban",
-  "deploy-room": "crons",
-  "metrics-wall": "stats",
-  "server-room": "agents",
-  "lounge": "stats",
-  "command-center": "agents",
+  "desenvolvimento": "kanban",
+  "operacoes": "stats",
+  "sala-reuniao": "meeting",
+  "copa": "stats",
 };
+
+// ── Simple activity from status/dispatch ──────────────────────────────────────
+function simpleActivity(
+  status: string,
+  hasDispatch: boolean,
+  hasTask: boolean
+): AgentActivity {
+  const now = Date.now();
+  if (hasDispatch) return { state: "thinking", label: "Processando...", since: now };
+  if (status === "degraded") return { state: "thinking", label: "Diagnosticando...", since: now };
+  if (hasTask) return { state: "coding", label: "Trabalhando...", since: now };
+  return { state: "idle", label: "", since: now };
+}
 
 export function OfficeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -61,13 +71,11 @@ export function OfficeCanvas() {
   const { data: tasks } = useTasks();
   const { openPanel, selectAgent, setHoveredEntity } = useOfficeStore();
   const selectedAgentId = useOfficeStore((s) => s.selectedAgentId);
+  const meetingAgents = useOfficeStore((s) => s.meetingAgents);
 
-  // Sync selected agent
-  useEffect(() => {
-    stateRef.current.selectedEntity = selectedAgentId;
-  }, [selectedAgentId]);
+  useEffect(() => { stateRef.current.selectedEntity = selectedAgentId; }, [selectedAgentId]);
 
-  // ── Combined effect: statuses + dispatches + tasks + incidents → movement ──
+  // ── Combined data sync + movement ──────────────────────────────────────────
   useEffect(() => {
     const state = stateRef.current;
 
@@ -99,179 +107,124 @@ export function OfficeCanvas() {
     }
     state.agentDispatches = dispatchMap;
 
-    // 3. Incident alerts on rooms
+    // 3. Incident alerts
     const alertMap = new Map<string, "warning" | "critical">();
     const openIncidents = incidents?.filter((i) => i.status !== "closed") ?? [];
-    if (openIncidents.length > 0) {
-      const hasCritical = openIncidents.some((i) => i.severity === "critical");
-      const hasHigh = openIncidents.some((i) => i.severity === "high");
-      if (hasCritical) {
-        alertMap.set("war-room", "critical");
-      } else if (hasHigh) {
-        alertMap.set("war-room", "warning");
-      }
+    if (openIncidents.some((i) => i.severity === "critical")) {
+      alertMap.set("sala-reuniao", "critical");
+    } else if (openIncidents.some((i) => i.severity === "high")) {
+      alertMap.set("sala-reuniao", "warning");
     }
     state.alertRooms = alertMap;
 
-    // 4. Compute activity state per agent
-    const activityMap = new Map<string, ReturnType<typeof computeActivity>>();
-    for (const agentCfg of AGENTS) {
-      const nameKey = agentCfg.name.toLowerCase();
-      const statusData = statusMap.get(nameKey);
-      const agentDispatches = dispatches?.filter(
-        (d) => d.target_agent === nameKey || d.issued_by === nameKey
-      ) ?? [];
-      const agentTasks = tasks?.filter(
-        (t) => (t.owner?.toLowerCase() === nameKey || t.assigned_to?.toLowerCase() === nameKey) &&
-               t.column !== "done"
-      ) ?? [];
-
-      const activity = computeActivity({
-        agentName: nameKey,
-        agentStatus: statusData?.status ?? "idle",
-        dispatches: agentDispatches,
-        tasks: agentTasks,
-      });
-      activityMap.set(agentCfg.id, activity);
-    }
-    state.agentActivities = activityMap;
-
-    // 5. Room assignment per agent (skip João — player controlled)
+    // 4. Activity + Room assignment per agent
+    const activityMap = new Map<string, AgentActivity>();
     for (const agentCfg of AGENTS) {
       if (agentCfg.id === "joao") continue; // Player-controlled
+
       const nameKey = agentCfg.name.toLowerCase();
       const statusData = statusMap.get(nameKey);
       const dispatchData = dispatchMap.get(nameKey);
-
-      // Find tasks for this agent
       const agentTasks = tasks?.filter(
         (t) => (t.owner?.toLowerCase() === nameKey || t.assigned_to?.toLowerCase() === nameKey) &&
                t.column !== "done"
       ) ?? [];
-
-      // Check if agent is incident owner
       const ownedIncident = openIncidents.find(
-        (i) => i.owner?.toLowerCase() === nameKey || i.source?.toLowerCase() === nameKey
+        (i) => i.owner?.toLowerCase() === nameKey
       );
 
+      // Simple activity
+      activityMap.set(agentCfg.id, simpleActivity(
+        statusData?.status ?? "idle",
+        dispatchData?.hasActive ?? false,
+        agentTasks.length > 0,
+      ));
+
+      // Room assignment
       const targetRoom = determineRoom(agentCfg, {
         status: statusData?.status ?? "idle",
         hasActiveDispatch: dispatchData?.hasActive ?? false,
-        activeTasks: agentTasks.map((t) => ({
-          column: t.column, type: t.type, priority: t.priority,
-        })),
+        isInMeeting: meetingAgents.includes(agentCfg.id),
         isIncidentOwner: !!ownedIncident,
         incidentSeverity: ownedIncident?.severity ?? null,
+        hasActiveTasks: agentTasks.length > 0,
       });
 
       const center = getRoomCenter(targetRoom);
       if (center) {
         const hash = agentCfg.id.charCodeAt(0) + agentCfg.id.charCodeAt(agentCfg.id.length - 1);
-        const offsetX = ((hash % 7) - 3) * 25;
-        const offsetY = ((hash % 5) - 2) * 15;
+        const offsetX = ((hash % 7) - 3) * 20;
+        const offsetY = ((hash % 5) - 2) * 12;
         setAgentTarget(state, agentCfg.id, center.x + offsetX, center.y + offsetY);
       }
     }
-  }, [agents, dispatches, incidents, tasks]);
+    state.agentActivities = activityMap;
+  }, [agents, dispatches, incidents, tasks, meetingAgents]);
 
-  // ── Convert screen coords to canvas coords ─────────────────────────────────
-  const toCanvasCoords = useCallback((clientX: number, clientY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (clientX - rect.left) * (CANVAS_W / rect.width),
-      y: (clientY - rect.top) * (CANVAS_H / rect.height),
-    };
-  }, []);
-
-  // ── Keyboard input (WASD / Arrow keys) ───────────────────────────────────────
+  // ── Keyboard input ──────────────────────────────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
       if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
         e.preventDefault();
         keysRef.current.add(key);
-        updateJoaoVelocity();
+        updateVelocity();
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       keysRef.current.delete(e.key.toLowerCase());
-      updateJoaoVelocity();
+      updateVelocity();
     };
-
-    function updateJoaoVelocity() {
+    function updateVelocity() {
       const keys = keysRef.current;
       const joao = stateRef.current.agentAnims.get("joao");
       if (!joao) return;
-
       let vx = 0, vy = 0;
       if (keys.has("w") || keys.has("arrowup")) vy -= 1;
       if (keys.has("s") || keys.has("arrowdown")) vy += 1;
       if (keys.has("a") || keys.has("arrowleft")) vx -= 1;
       if (keys.has("d") || keys.has("arrowright")) vx += 1;
-
-      // Normalize diagonal
-      if (vx !== 0 && vy !== 0) {
-        const len = Math.sqrt(vx * vx + vy * vy);
-        vx /= len;
-        vy /= len;
-      }
-
+      if (vx !== 0 && vy !== 0) { const l = Math.SQRT2; vx /= l; vy /= l; }
       joao.velX = vx;
       joao.velY = vy;
     }
-
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-    };
+    return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
   }, []);
 
-  // ── Mouse move ──────────────────────────────────────────────────────────────
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const { x, y } = toCanvasCoords(e.clientX, e.clientY);
-      const canvas = canvasRef.current;
+  // ── Coord conversion ───────────────────────────────────────────────────────
+  const toCanvas = useCallback((cx: number, cy: number) => {
+    const c = canvasRef.current;
+    if (!c) return { x: 0, y: 0 };
+    const r = c.getBoundingClientRect();
+    return { x: (cx - r.left) * (CANVAS_W / r.width), y: (cy - r.top) * (CANVAS_H / r.height) };
+  }, []);
 
-      const agent = hitTestAgent(x, y, stateRef.current);
-      const hotspot = hitTestHotspot(x, y, stateRef.current);
-      const room = !agent && !hotspot ? hitTestRoom(x, y, stateRef.current) : null;
+  // ── Mouse ───────────────────────────────────────────────────────────────────
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const { x, y } = toCanvas(e.clientX, e.clientY);
+    const s = stateRef.current;
+    const agent = hitTestAgent(x, y, s);
+    const hotspot = hitTestHotspot(x, y, s);
+    const room = !agent && !hotspot ? hitTestRoom(x, y, s) : null;
+    s.hoveredEntity = agent?.id ?? null;
+    s.hoveredHotspot = hotspot?.id ?? null;
+    s.hoveredRoom = room?.id ?? null;
+    setHoveredEntity(agent?.id ?? null);
+    if (canvasRef.current) canvasRef.current.style.cursor = agent || hotspot || room ? "pointer" : "default";
+  }, [toCanvas, setHoveredEntity]);
 
-      stateRef.current.hoveredEntity = agent?.id ?? null;
-      stateRef.current.hoveredHotspot = hotspot?.id ?? null;
-      stateRef.current.hoveredRoom = room?.id ?? null;
-      setHoveredEntity(agent?.id ?? null);
-
-      if (canvas) {
-        canvas.style.cursor = agent || hotspot || room ? "pointer" : "default";
-      }
-    },
-    [toCanvasCoords, setHoveredEntity]
-  );
-
-  // ── Click handler (agent > hotspot > room) ─────────────────────────────────
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const { x, y } = toCanvasCoords(e.clientX, e.clientY);
-
-      const agent = hitTestAgent(x, y, stateRef.current);
-      if (agent) { selectAgent(agent.id); return; }
-
-      const hotspot = hitTestHotspot(x, y, stateRef.current);
-      if (hotspot) { openPanel(hotspot.actionTarget as PanelType); return; }
-
-      // Room click — open contextual panel
-      const room = hitTestRoom(x, y, stateRef.current);
-      if (room) {
-        const panel = ROOM_PANEL_MAP[room.id];
-        if (panel) openPanel(panel);
-      }
-    },
-    [toCanvasCoords, selectAgent, openPanel]
-  );
+  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const { x, y } = toCanvas(e.clientX, e.clientY);
+    const s = stateRef.current;
+    const agent = hitTestAgent(x, y, s);
+    if (agent) { selectAgent(agent.id); return; }
+    const hotspot = hitTestHotspot(x, y, s);
+    if (hotspot) { openPanel(hotspot.actionTarget as PanelType); return; }
+    const room = hitTestRoom(x, y, s);
+    if (room) { const panel = ROOM_PANEL_MAP[room.id]; if (panel) openPanel(panel); }
+  }, [toCanvas, selectAgent, openPanel]);
 
   // ── Render loop ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -279,45 +232,37 @@ export function OfficeCanvas() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     function frame(time: number) {
       stateRef.current.time = time;
       renderOffice(ctx!, stateRef.current);
       rafRef.current = requestAnimationFrame(frame);
     }
-
     rafRef.current = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // ── Resize handler ──────────────────────────────────────────────────────────
+  // ── Resize ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
-
-    const observer = new ResizeObserver(() => {
+    const obs = new ResizeObserver(() => {
       const { width, height } = container.getBoundingClientRect();
-      const aspect = CANVAS_W / CANVAS_H;
-      let w = width;
-      let h = width / aspect;
-      if (h > height) { h = height; w = height * aspect; }
+      const a = CANVAS_W / CANVAS_H;
+      let w = width, h = width / a;
+      if (h > height) { h = height; w = height * a; }
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
     });
-
-    observer.observe(container);
-    return () => observer.disconnect();
+    obs.observe(container);
+    return () => obs.disconnect();
   }, []);
 
   return (
     <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden p-2">
       <canvas
-        ref={canvasRef}
-        width={CANVAS_W}
-        height={CANVAS_H}
-        onMouseMove={handleMouseMove}
-        onClick={handleClick}
+        ref={canvasRef} width={CANVAS_W} height={CANVAS_H}
+        onMouseMove={handleMouseMove} onClick={handleClick}
         onMouseLeave={() => {
           stateRef.current.hoveredEntity = null;
           stateRef.current.hoveredHotspot = null;

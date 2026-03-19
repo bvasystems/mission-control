@@ -71,8 +71,8 @@ function OfficeHelpBar() {
 
   return (
     <div className="flex items-center justify-center px-5 py-1.5 border-t border-white/[0.04] bg-black/20 text-[10px] text-zinc-600 gap-6 shrink-0">
-      <span><kbd className="px-1 py-0.5 bg-white/5 rounded text-zinc-500">WASD</kbd> para mover João</span>
-      <span>Clique em uma <strong className="text-zinc-500">sala</strong> ou <strong className="text-zinc-500">agente</strong> para abrir detalhes</span>
+      <span><kbd className="px-1 py-0.5 bg-white/5 rounded text-zinc-500">WASD</kbd> mover</span>
+      <span>Clique em <strong className="text-zinc-500">agente</strong> para gerenciar · <strong className="text-zinc-500">sala</strong> para interagir · <strong className="text-zinc-500">Sala de Reunião</strong> para reunião</span>
       {activePanel && <span><kbd className="px-1 py-0.5 bg-white/5 rounded text-zinc-500">ESC</kbd> fechar painel</span>}
     </div>
   );

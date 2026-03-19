@@ -9,20 +9,19 @@ export type PanelType =
   | "deploys"
   | "stats"
   | "agent-detail"
+  | "meeting"
   | null;
 
 interface OfficeState {
-  // Active panel
+  // Panel
   activePanel: PanelType;
   panelData: Record<string, unknown> | null;
   openPanel: (panel: PanelType, data?: Record<string, unknown>) => void;
   closePanel: () => void;
 
-  // Hovered entity
+  // Hover / Selection
   hoveredEntity: string | null;
   setHoveredEntity: (id: string | null) => void;
-
-  // Selected agent (for detail view)
   selectedAgentId: string | null;
   selectAgent: (id: string | null) => void;
 
@@ -30,9 +29,16 @@ interface OfficeState {
   tooltip: { x: number; y: number; text: string } | null;
   setTooltip: (t: { x: number; y: number; text: string } | null) => void;
 
-  // Command input pre-fill (from quick actions)
+  // Command draft
   commandDraft: string;
   setCommandDraft: (text: string) => void;
+
+  // Meeting room
+  meetingAgents: string[];
+  callToMeeting: (agentIds: string[]) => void;
+  addToMeeting: (agentId: string) => void;
+  removeFromMeeting: (agentId: string) => void;
+  dismissMeeting: () => void;
 }
 
 export const useOfficeStore = create<OfficeState>((set) => ({
@@ -60,4 +66,21 @@ export const useOfficeStore = create<OfficeState>((set) => ({
 
   commandDraft: "",
   setCommandDraft: (text) => set({ commandDraft: text }),
+
+  // Meeting
+  meetingAgents: [],
+  callToMeeting: (agentIds) =>
+    set({ meetingAgents: agentIds, activePanel: "meeting", panelData: null }),
+  addToMeeting: (agentId) =>
+    set((s) => ({
+      meetingAgents: s.meetingAgents.includes(agentId)
+        ? s.meetingAgents
+        : [...s.meetingAgents, agentId],
+    })),
+  removeFromMeeting: (agentId) =>
+    set((s) => ({
+      meetingAgents: s.meetingAgents.filter((id) => id !== agentId),
+    })),
+  dismissMeeting: () =>
+    set({ meetingAgents: [], activePanel: null, panelData: null }),
 }));

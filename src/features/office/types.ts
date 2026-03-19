@@ -3,21 +3,29 @@
 
 export type OfficeAgentStatus = "idle" | "active" | "degraded" | "down";
 
-// ── Agent Activity States (what the agent is visually doing) ──────────────────
-export type AgentActivityState =
-  | "idle"
-  | "thinking"
-  | "coding"
-  | "reading"
-  | "talking"
-  | "waiting"
-  | "done";
+export type Department =
+  | "recepcao"
+  | "diretoria"
+  | "desenvolvimento"
+  | "operacoes"
+  | "sala-reuniao"
+  | "copa";
+
+// ── Agent Activity States ─────────────────────────────────────────────────────
+export type AgentActivityState = "idle" | "thinking" | "coding" | "reading" | "talking" | "waiting" | "done";
 
 export interface AgentActivity {
   state: AgentActivityState;
-  label: string;      // contextual text for speech bubble
-  targetAgent?: string; // who they're talking to / waiting for
-  since: number;       // timestamp when this state started
+  label: string;
+  targetAgent?: string;
+  since: number;
+}
+
+// ── Meeting ───────────────────────────────────────────────────────────────────
+export interface GroupDispatchPayload {
+  targetAgents: string[];
+  commandText: string;
+  actionType?: string;
 }
 
 export type DispatchState =

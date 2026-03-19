@@ -64,6 +64,7 @@ const PANEL_CONFIG: Record<string, { title: string; icon: React.ReactNode; route
   incidents: { title: "Incidentes", icon: <Flame size={16} />, route: "/incidents" },
   crons: { title: "Cron Jobs", icon: <Clock size={16} />, route: "/crons" },
   stats: { title: "Dashboard", icon: <Activity size={16} />, route: "/" },
+  meeting: { title: "Sala de Reunião", icon: <Activity size={16} />, route: "/office" },
   "agent-detail": { title: "Controle do Agente", icon: <Bot size={16} />, route: "/agents" },
 };
 
@@ -621,6 +622,147 @@ function timeAgo(dateStr: string | null): string {
 }
 
 // ── Panel content router ──────────────────────────────────────────────────────
+// ── Meeting Panel ─────────────────────────────────────────────────────────────
+function MeetingPanel() {
+  const { data: agents } = useAgents();
+  const { meetingAgents, addToMeeting, removeFromMeeting, dismissMeeting } = useOfficeStore();
+  const { commandDraft, setCommandDraft } = useOfficeStore();
+  const { send, sending } = useSendDispatch();
+  const [lastSent, setLastSent] = useState<string | null>(null);
+
+  const inMeeting = agents?.filter((a) =>
+    meetingAgents.includes(a.name.toLowerCase()) || meetingAgents.includes(a.id?.toString())
+  ) ?? [];
+
+  const available = agents?.filter((a) =>
+    !meetingAgents.includes(a.name.toLowerCase()) && !meetingAgents.includes(a.id?.toString())
+  ) ?? [];
+
+  const handleGroupSend = async () => {
+    if (!commandDraft.trim() || meetingAgents.length === 0) return;
+    for (const agentName of meetingAgents) {
+      await send({
+        targetAgent: agentName,
+        commandText: commandDraft.trim(),
+        actionType: "meeting_command",
+      });
+    }
+    setLastSent("group");
+    setCommandDraft("");
+    setTimeout(() => setLastSent(null), 3000);
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Meeting status */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-white font-semibold text-sm">
+            {meetingAgents.length > 0 ? `${meetingAgents.length} na reunião` : "Nenhuma reunião ativa"}
+          </p>
+          <p className="text-zinc-500 text-xs">Sala de Reunião</p>
+        </div>
+        {meetingAgents.length > 0 && (
+          <button
+            onClick={dismissMeeting}
+            className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 transition-colors"
+          >
+            Encerrar
+          </button>
+        )}
+      </div>
+
+      {/* Agents in meeting */}
+      {inMeeting.length > 0 && (
+        <div>
+          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-medium">Na reunião</p>
+          <div className="space-y-1.5">
+            {inMeeting.map((a) => (
+              <div key={a.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/15">
+                <div className={`w-2.5 h-2.5 rounded-full ${STATUS_DOT[a.status]}`} />
+                <div className="flex-1">
+                  <p className="text-sm text-white">{a.name}</p>
+                  <p className="text-[10px] text-zinc-500">{a.status}</p>
+                </div>
+                <button
+                  onClick={() => removeFromMeeting(a.name.toLowerCase())}
+                  className="text-zinc-600 hover:text-zinc-400 text-xs"
+                >
+                  Dispensar
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add agents */}
+      {available.length > 0 && (
+        <div>
+          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-medium">Chamar para reunião</p>
+          <div className="space-y-1">
+            {available.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => addToMeeting(a.name.toLowerCase())}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors text-left"
+              >
+                <div className={`w-2 h-2 rounded-full ${STATUS_DOT[a.status]}`} />
+                <span className="text-xs text-zinc-300">{a.name}</span>
+                <span className="text-[10px] text-zinc-600 ml-auto">+ Chamar</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Group command */}
+      {meetingAgents.length > 0 && (
+        <div>
+          <div className="border-t border-white/[0.06] mb-3" />
+          <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-medium">Comando para todos</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={commandDraft}
+              onChange={(e) => setCommandDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleGroupSend(); }}
+              placeholder="Mensagem para a reunião..."
+              disabled={sending}
+              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-50"
+            />
+            <button
+              onClick={handleGroupSend}
+              disabled={sending || !commandDraft.trim()}
+              className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white transition-colors text-sm shrink-0"
+            >
+              <Send size={14} />
+            </button>
+          </div>
+          {lastSent && (
+            <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
+              <CheckCircle2 size={12} /> Comando enviado para {meetingAgents.length} agentes
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Call all shortcut */}
+      {meetingAgents.length === 0 && (
+        <button
+          onClick={() => {
+            const allNames = agents?.map((a) => a.name.toLowerCase()) ?? [];
+            useOfficeStore.getState().callToMeeting(allNames);
+          }}
+          className="w-full py-3 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/20 text-indigo-300 text-sm transition-colors"
+        >
+          Chamar todos para reunião
+        </button>
+      )}
+    </div>
+  );
+}
+
 function PanelContent({ panel, data }: { panel: PanelType; data: Record<string, unknown> | null }) {
   switch (panel) {
     case "agents":       return <AgentsPanel />;
@@ -628,6 +770,7 @@ function PanelContent({ panel, data }: { panel: PanelType; data: Record<string, 
     case "incidents":    return <IncidentsPanel />;
     case "crons":        return <CronsPanel />;
     case "stats":        return <StatsPanel />;
+    case "meeting":      return <MeetingPanel />;
     case "agent-detail": return <AgentDetailPanel agentId={(data?.agentId as string) ?? ""} />;
     case "kanban":
       return (
