@@ -1,0 +1,53 @@
+name: office-evolution
+description: Evolução sequencial do escritório virtual por fases
+type: sequential
+
+phases:
+  - id: phase-1
+    name: "Agentes Vivos"
+    tasks: [agent-states]
+    agent: office-engine
+    description: >
+      Personagens com 6 estados de atividade (thinking, coding, reading,
+      talking, waiting, done) + speech bubbles contextuais.
+    acceptance: Agentes refletem visualmente o que estão fazendo.
+
+  - id: phase-2
+    name: "Chat Inter-Agent"
+    tasks: [inter-agent-chat]
+    agent: chat-system
+    depends_on: [phase-1]
+    description: >
+      Sistema de @mentions entre agentes, threads de conversa,
+      delegation chains (Jota→Caio→Clara→Jota).
+    acceptance: Agentes conversam entre si visualmente no office.
+
+  - id: phase-3
+    name: "Kanban Auto-Sync"
+    tasks: [kanban-auto-sync]
+    agent: kanban-sync
+    depends_on: [phase-1]
+    description: >
+      Tasks se movem automaticamente no Kanban conforme agentes
+      trabalham. Delegation via chat cria tasks.
+    acceptance: Kanban reflete o trabalho dos agentes em tempo real.
+
+  - id: phase-4
+    name: "Real-time WebSocket"
+    tasks: [websocket-gateway]
+    agent: realtime-backend
+    depends_on: [phase-2]
+    description: >
+      Substituir polling SWR por WebSocket para updates instantâneos.
+      Agent State Manager com broadcasting de eventos.
+    acceptance: Updates de estado < 100ms, sem polling.
+
+  - id: phase-5
+    name: "Pathfinding"
+    tasks: [pathfinding]
+    agent: office-engine
+    depends_on: [phase-1]
+    description: >
+      BFS pathfinding para agentes andarem por portas e corredores
+      sem atravessar paredes.
+    acceptance: Agentes navegam pela planta do escritório realisticamente.

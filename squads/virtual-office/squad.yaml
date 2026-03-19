@@ -1,0 +1,101 @@
+name: virtual-office
+version: 1.0.0
+description: >
+  Squad para o Escritório Virtual de Agentes IA — transforma o office canvas
+  do Mission Control em um escritório vivo com agentes animados, chat bidirecional,
+  inter-agent delegation, e Kanban auto-sync.
+author: João Marcos
+tags: [office, agents, real-time, canvas, kanban, chat]
+license: private
+
+# ── Agents do Squad ────────────────────────────────────────────────────────────
+agents:
+  - id: office-engine
+    file: agents/office-engine.md
+    role: Office Engine Developer
+    scope: Canvas rendering, animações, estados visuais, pathfinding, sprites
+
+  - id: chat-system
+    file: agents/chat-system.md
+    role: Chat System Developer
+    scope: Chat bidirecional, @mentions, threads, delegation chains, message routing
+
+  - id: kanban-sync
+    file: agents/kanban-sync.md
+    role: Kanban Integration Developer
+    scope: Auto-move tasks, agent↔task sync, status-driven column changes
+
+  - id: realtime-backend
+    file: agents/realtime-backend.md
+    role: Real-time Backend Developer
+    scope: WebSocket gateway, Agent State Manager, event broadcasting, state sync
+
+# ── Tasks Principais ───────────────────────────────────────────────────────────
+tasks:
+  # Phase 1 — Agent Activity States
+  - id: agent-states
+    file: tasks/agent-states.md
+    agent: office-engine
+    priority: P0
+    description: Implementar estados de atividade (thinking, coding, reading, talking, waiting, done) com animações e speech bubbles
+
+  # Phase 2 — Inter-Agent Chat
+  - id: inter-agent-chat
+    file: tasks/inter-agent-chat.md
+    agent: chat-system
+    priority: P0
+    depends_on: [agent-states]
+    description: Sistema de chat entre agentes com @mentions, threads, e delegation chains (CEO→Dev→Tester→CEO)
+
+  # Phase 3 — Kanban Auto-Sync
+  - id: kanban-auto-sync
+    file: tasks/kanban-auto-sync.md
+    agent: kanban-sync
+    priority: P1
+    depends_on: [agent-states]
+    description: Tasks se movem automaticamente no Kanban conforme agentes mudam de estado
+
+  # Phase 4 — WebSocket Real-time
+  - id: websocket-gateway
+    file: tasks/websocket-gateway.md
+    agent: realtime-backend
+    priority: P1
+    depends_on: [inter-agent-chat]
+    description: Substituir polling SWR por WebSocket para updates em tempo real
+
+  # Phase 5 — Pathfinding & Animations
+  - id: pathfinding
+    file: tasks/pathfinding.md
+    agent: office-engine
+    priority: P2
+    depends_on: [agent-states]
+    description: BFS pathfinding para agentes andarem por portas e corredores sem atravessar paredes
+
+# ── Workflows ──────────────────────────────────────────────────────────────────
+workflows:
+  - id: office-evolution
+    file: workflows/office-evolution.yaml
+    description: Workflow sequencial para evoluir o escritório virtual por fases
+
+# ── Config ─────────────────────────────────────────────────────────────────────
+config:
+  tech_stack:
+    frontend: Next.js 16 + React 19 + Canvas 2D
+    state: Zustand + SWR (→ WebSocket)
+    backend: Next.js API Routes + PostgreSQL
+    realtime: Socket.io (fase 4)
+    styling: Tailwind CSS
+
+  project_context:
+    existing_files:
+      - src/features/office/engine/OfficeRenderer.ts
+      - src/features/office/components/OfficeCanvas.tsx
+      - src/features/office/components/SidePanel.tsx
+      - src/features/office/store.ts
+      - src/features/office/hooks/useOfficeData.ts
+      - src/features/office/hooks/useDispatch.ts
+      - src/features/office/types.ts
+      - src/features/office/config/office-map.ts
+      - src/features/office/engine/roomAssignment.ts
+      - src/app/api/office/dispatch/route.ts
+      - src/app/api/office/webhook/route.ts
