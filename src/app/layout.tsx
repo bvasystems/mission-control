@@ -22,7 +22,7 @@ export default function RootLayout({
         <SessionProviderClient>
           <div className="flex h-screen overflow-hidden">
             <Sidebar />
-            <div className="flex-1 overflow-y-auto overflow-x-hidden border-l border-white/[0.08] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/15 via-zinc-950 to-zinc-950">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden border-l border-white/[0.08] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/15 via-zinc-950 to-zinc-950">
               {children}
             </div>
           </div>
