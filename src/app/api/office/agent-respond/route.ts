@@ -85,15 +85,34 @@ export async function POST(req: NextRequest) {
     const bridgeData = await bridgeRes.json();
 
     // Extrair texto da resposta da Bridge
+    // Priorizar payloads[].text (texto limpo) sobre responsePreview (pode ser JSON)
     let responseText = "Mensagem recebida.";
 
-    if (bridgeData?.data?.responsePreview) {
-      responseText = bridgeData.data.responsePreview;
-    } else if (bridgeData?.data?.response?.result?.payloads?.length) {
-      responseText = bridgeData.data.response.result.payloads
+    const payloads = bridgeData?.data?.response?.result?.payloads;
+    if (Array.isArray(payloads) && payloads.length) {
+      responseText = payloads
         .map((p: { text?: string }) => p.text)
         .filter(Boolean)
         .join("\n");
+    } else if (bridgeData?.data?.responsePreview) {
+      // Fallback: responsePreview pode ser texto ou JSON stringificado
+      const preview = bridgeData.data.responsePreview;
+      try {
+        const parsed = JSON.parse(preview);
+        // Se é JSON, tentar extrair payloads de dentro
+        const innerPayloads = parsed?.result?.payloads;
+        if (Array.isArray(innerPayloads) && innerPayloads.length) {
+          responseText = innerPayloads
+            .map((p: { text?: string }) => p.text)
+            .filter(Boolean)
+            .join("\n");
+        } else {
+          responseText = preview;
+        }
+      } catch {
+        // Não é JSON, usar como texto direto
+        responseText = preview;
+      }
     }
 
     // Atualizar o dispatch com a resposta
