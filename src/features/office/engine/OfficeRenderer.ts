@@ -1897,19 +1897,70 @@ function drawCharacter(
 
 // ── Movement system ───────────────────────────────────────────────────────────
 
-// ── Walkable area check (rooms + corridor) ────────────────────────────────────
+// ── Walkable area check (rooms + door corridors only) ────────────────────────
 function isWalkable(x: number, y: number): boolean {
+  const PAD = 6;
+
   // Inside any room is walkable
   for (const room of ROOMS) {
-    if (x >= room.x + 8 && x <= room.x + room.w - 8 &&
-        y >= room.y + 8 && y <= room.y + room.h - 8) {
+    if (x >= room.x + PAD && x <= room.x + room.w - PAD &&
+        y >= room.y + PAD && y <= room.y + room.h - PAD) {
       return true;
     }
   }
-  // Corridor area between rooms (generous bounds)
-  if (x >= 30 && x <= CANVAS_W - 30 && y >= 30 && y <= CANVAS_H - 30) {
+
+  // Corridor zones — only the actual corridors between rooms, not everywhere
+  // Horizontal corridor between row 1 and row 2 (y ~310-360)
+  if (x >= 30 && x <= CANVAS_W - 30 && y >= 300 && y <= 370) {
     return true;
   }
+  // Horizontal corridor between row 2 and row 3 (y ~620-660)
+  if (x >= 30 && x <= CANVAS_W - 30 && y >= 610 && y <= 670) {
+    return true;
+  }
+  // Vertical corridor left side (x ~30-40)
+  if (x >= 20 && x <= 50 && y >= 30 && y <= CANVAS_H - 20) {
+    return true;
+  }
+  // Vertical corridor right side (x ~1360-1400)
+  if (x >= CANVAS_W - 50 && x <= CANVAS_W - 20 && y >= 30 && y <= CANVAS_H - 20) {
+    return true;
+  }
+
+  // Door threshold zones — allow walking through door openings in walls
+  for (const room of ROOMS) {
+    for (const door of room.doors) {
+      let dx1: number, dy1: number, dx2: number, dy2: number;
+      const DOOR_PAD = 20; // extra space around door for smooth transit
+
+      if (door.side === "top") {
+        dx1 = room.x + door.offset - 5;
+        dx2 = room.x + door.offset + door.width + 5;
+        dy1 = room.y - DOOR_PAD;
+        dy2 = room.y + DOOR_PAD;
+      } else if (door.side === "bottom") {
+        dx1 = room.x + door.offset - 5;
+        dx2 = room.x + door.offset + door.width + 5;
+        dy1 = room.y + room.h - DOOR_PAD;
+        dy2 = room.y + room.h + DOOR_PAD;
+      } else if (door.side === "left") {
+        dx1 = room.x - DOOR_PAD;
+        dx2 = room.x + DOOR_PAD;
+        dy1 = room.y + door.offset - 5;
+        dy2 = room.y + door.offset + door.width + 5;
+      } else {
+        dx1 = room.x + room.w - DOOR_PAD;
+        dx2 = room.x + room.w + DOOR_PAD;
+        dy1 = room.y + door.offset - 5;
+        dy2 = room.y + door.offset + door.width + 5;
+      }
+
+      if (x >= dx1 && x <= dx2 && y >= dy1 && y <= dy2) {
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -1987,7 +2038,7 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
       continue;
     }
 
-    // AI-controlled agents (target-based movement)
+    // AI-controlled agents (target-based movement with collision)
     const dx = anim.targetX - anim.x;
     const dy = anim.targetY - anim.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -1995,8 +2046,33 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
     if (dist > 2) {
       anim.walking = true;
       const step = Math.min(WALK_SPEED * deltaSec, dist);
-      anim.x += (dx / dist) * step;
-      anim.y += (dy / dist) * step;
+      const moveX = (dx / dist) * step;
+      const moveY = (dy / dist) * step;
+      const newX = anim.x + moveX;
+      const newY = anim.y + moveY;
+
+      // Check walls + furniture for AI agents too
+      const canMove = isWalkable(newX, newY) && !collidesWithFurniture(newX, newY);
+      if (canMove) {
+        anim.x = newX;
+        anim.y = newY;
+      } else {
+        // Try axis-separated movement (slide along obstacles)
+        const canMoveX = isWalkable(anim.x + moveX, anim.y) && !collidesWithFurniture(anim.x + moveX, anim.y);
+        const canMoveY = isWalkable(anim.x, anim.y + moveY) && !collidesWithFurniture(anim.x, anim.y + moveY);
+        if (canMoveX) {
+          anim.x += moveX;
+        } else if (canMoveY) {
+          anim.y += moveY;
+        }
+        // If fully blocked, just teleport to target (avoid infinite stuck)
+        if (!canMoveX && !canMoveY) {
+          anim.x = anim.targetX;
+          anim.y = anim.targetY;
+          anim.walking = false;
+          continue;
+        }
+      }
 
       if (Math.abs(dx) > Math.abs(dy)) {
         anim.direction = dx > 0 ? "right" : "left";
