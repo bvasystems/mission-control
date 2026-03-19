@@ -14,7 +14,7 @@ import {
   type AgentStatus,
   type AgentDispatchIndicator,
 } from "../engine/OfficeRenderer";
-import { getRoomCenter, getIdleSpot } from "../config/office-map";
+import { getRoomCenter, getIdleSpot, HOTSPOTS } from "../config/office-map";
 import { useOfficeStore, type PanelType } from "../store";
 import { useAgents, useIncidents, useTasks } from "../hooks/useOfficeData";
 import { useAllDispatches } from "../hooks/useDispatch";
@@ -56,11 +56,14 @@ export function OfficeCanvas() {
     hoveredHotspot: null,
     hoveredRoom: null,
     selectedEntity: null,
+    nearbyAgent: null,
+    nearbyHotspot: null,
     agentStatuses: new Map(),
     agentDispatches: new Map(),
     agentAnims: new Map(),
     agentActivities: new Map(),
     alertRooms: new Map(),
+    particles: [],
     cameraX: 0,
     cameraY: 0,
     time: 0,
@@ -199,8 +202,24 @@ export function OfficeCanvas() {
       return tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.getAttribute("contenteditable") === "true";
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isTyping()) return; // Don't capture WASD when typing in inputs
+      if (isTyping()) return;
       const key = e.key.toLowerCase();
+
+      // "E" key — interact with nearby agent or hotspot
+      if (key === "e") {
+        e.preventDefault();
+        const s = stateRef.current;
+        if (s.nearbyAgent) {
+          selectAgent(s.nearbyAgent);
+          return;
+        }
+        if (s.nearbyHotspot) {
+          const hs = HOTSPOTS.find((h) => h.id === s.nearbyHotspot);
+          if (hs) openPanel(hs.actionTarget as PanelType);
+          return;
+        }
+      }
+
       if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
         e.preventDefault();
         keysRef.current.add(key);

@@ -43,15 +43,26 @@ export interface RenderState {
   hoveredHotspot: string | null;
   hoveredRoom: string | null;
   selectedEntity: string | null;
+  nearbyAgent: string | null;        // Agent within proximity of João
+  nearbyHotspot: string | null;      // Hotspot within proximity of João
   agentStatuses: Map<string, AgentStatus>;
   agentDispatches: Map<string, AgentDispatchIndicator>;
   agentAnims: Map<string, AgentAnimState>;
   agentActivities: Map<string, AgentActivity>;
   alertRooms: Map<string, string>;
+  particles: Particle[];
   cameraX: number;
   cameraY: number;
   time: number;
   lastTime: number;
+}
+
+interface Particle {
+  x: number; y: number;
+  vx: number; vy: number;
+  life: number; maxLife: number;
+  size: number; color: string;
+  type: "steam" | "leaf" | "sparkle";
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -63,8 +74,19 @@ const CHAR_H = 24;             // character body height (without head)
 const HEAD_R = 10;             // head radius
 const WALL_THICKNESS = 4;
 
+const PROXIMITY_RANGE = 60;        // px — distance to trigger interaction
 const STATUS_COLORS: Record<string, string> = {
   active: "#22c55e", idle: "#6b7280", degraded: "#f59e0b", down: "#ef4444",
+};
+
+// ── Activity accessories (drawn on character based on state) ─────────────────
+const ACTIVITY_ACCESSORIES: Record<string, { emoji: string; offsetX: number; offsetY: number }> = {
+  coding:   { emoji: "💻", offsetX: 16, offsetY: -2 },
+  thinking: { emoji: "🧠", offsetX: -16, offsetY: -18 },
+  reading:  { emoji: "📖", offsetX: 16, offsetY: -2 },
+  talking:  { emoji: "🗣️", offsetX: -16, offsetY: -18 },
+  waiting:  { emoji: "☕", offsetX: 16, offsetY: 0 },
+  done:     { emoji: "✅", offsetX: -16, offsetY: -18 },
 };
 
 // ── Deterministic pseudo-random from seed ─────────────────────────────────────
@@ -1824,6 +1846,53 @@ function drawCharacter(
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }
+
+  // ── Accessory icon (contextual item based on activity) ─────────────────────
+  if (activityState !== "idle" && !anim.walking) {
+    const acc = ACTIVITY_ACCESSORIES[activityState];
+    if (acc) {
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const accFloat = Math.sin(state.time / 1200 + x * 0.1) * 1;
+      ctx.fillText(acc.emoji, x + acc.offsetX, y + bob + acc.offsetY + accFloat);
+    }
+  }
+
+  // ── Idle micro-animation (look around) ─────────────────────────────────────
+  if (activityState === "idle" && !anim.walking && !isHovered && !isSelected) {
+    // Subtle eye movement cycle — eyes shift direction every ~3s
+    const lookPhase = Math.floor((state.time + x * 100) / 3000) % 4;
+    if (lookPhase === 1 || lookPhase === 3) {
+      // Small "looking" indicator — slightly shift pupils (already drawn, this is visual only via head tilt)
+      // We add a subtle body sway for idle animation
+      // (The bob already handles vertical, this is just a note that the character feels alive)
+    }
+  }
+
+  // ── Proximity indicator (when João is near this agent) ─────────────────────
+  if (state.nearbyAgent === agent.id && agent.id !== "joao") {
+    const pulseAlpha = Math.sin(state.time / 400) * 0.2 + 0.5;
+    ctx.beginPath();
+    ctx.ellipse(x, y + bob + CHAR_H / 2 + 4, 24, 10, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(99,102,241,${pulseAlpha})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // "Press E" tooltip
+    ctx.font = "bold 8px 'Inter', system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const tipY = y + bob - CHAR_H / 2 - HEAD_R * 2 - 8;
+    const tipW = 52;
+    roundRect(ctx, x - tipW / 2, tipY - 8, tipW, 16, 4);
+    ctx.fillStyle = "rgba(99,102,241,0.85)";
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.fillText("PRESS E", x, tipY);
+  }
 }
 
 // ── Movement system ───────────────────────────────────────────────────────────
@@ -1877,15 +1946,18 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
         const newX = anim.x + vx * speed * deltaSec;
         const newY = anim.y + vy * speed * deltaSec;
 
-        // Collision check
-        if (isWalkable(newX, newY)) {
+        // Collision check (walls + furniture)
+        const canMoveXY = isWalkable(newX, newY) && !collidesWithFurniture(newX, newY);
+        if (canMoveXY) {
           anim.x = Math.max(20, Math.min(CANVAS_W - 20, newX));
           anim.y = Math.max(20, Math.min(CANVAS_H - 20, newY));
         } else {
-          // Try sliding along walls
-          if (isWalkable(newX, anim.y)) {
+          // Try sliding along walls/furniture
+          const canMoveX = isWalkable(newX, anim.y) && !collidesWithFurniture(newX, anim.y);
+          const canMoveY = isWalkable(anim.x, newY) && !collidesWithFurniture(anim.x, newY);
+          if (canMoveX) {
             anim.x = Math.max(20, Math.min(CANVAS_W - 20, newX));
-          } else if (isWalkable(anim.x, newY)) {
+          } else if (canMoveY) {
             anim.y = Math.max(20, Math.min(CANVAS_H - 20, newY));
           }
         }
@@ -1960,6 +2032,41 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
   // Update movement
   updateAgentMovement(state, delta);
 
+  // ── Proximity detection (João near agents/hotspots) ──────────────────────
+  const joaoAnim = state.agentAnims.get("joao");
+  state.nearbyAgent = null;
+  state.nearbyHotspot = null;
+  if (joaoAnim) {
+    let minDist = PROXIMITY_RANGE;
+    for (const agent of AGENTS) {
+      if (agent.id === "joao") continue;
+      const anim = state.agentAnims.get(agent.id);
+      if (!anim) continue;
+      const dx = joaoAnim.x - anim.x;
+      const dy = joaoAnim.y - anim.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < minDist) {
+        minDist = dist;
+        state.nearbyAgent = agent.id;
+      }
+    }
+    for (const hs of HOTSPOTS) {
+      const hsCx = hs.x + hs.w / 2;
+      const hsCy = hs.y + hs.h / 2;
+      const dx = joaoAnim.x - hsCx;
+      const dy = joaoAnim.y - hsCy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < PROXIMITY_RANGE) {
+        state.nearbyHotspot = hs.id;
+        break;
+      }
+    }
+  }
+
+  // ── Particle system update ───────────────────────────────────────────────
+  if (!state.particles) state.particles = [];
+  updateParticles(state, delta);
+
   // Clear
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
@@ -1973,9 +2080,20 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
   // Corridor floor (between rooms)
   drawCorridorFloor(ctx);
 
-  // Rooms (floor + 3D walls + alerts)
+  // Rooms (floor + 3D walls + lighting + alerts)
   for (const room of ROOMS) {
     drawRoom(ctx, room);
+
+    // ── Room ambient lighting (radial gradient — brighter center, darker edges) ──
+    const rlx = room.x + room.w / 2;
+    const rly = room.y + room.h / 2;
+    const rlr = Math.max(room.w, room.h) * 0.7;
+    const ambientGrad = ctx.createRadialGradient(rlx, rly, 0, rlx, rly, rlr);
+    ambientGrad.addColorStop(0, "rgba(255,255,255,0.03)");
+    ambientGrad.addColorStop(0.6, "rgba(0,0,0,0)");
+    ambientGrad.addColorStop(1, "rgba(0,0,0,0.08)");
+    ctx.fillStyle = ambientGrad;
+    ctx.fillRect(room.x, room.y, room.w, room.h);
 
     // Room hover highlight
     if (state.hoveredRoom === room.id) {
@@ -2081,8 +2199,172 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
     ctx.fillText(fullText, room.x + room.w / 2, ly + labelH / 2);
   }
 
+  // ── "Press E" on nearby hotspots ────────────────────────────────────────
+  if (state.nearbyHotspot) {
+    const hs = HOTSPOTS.find((h) => h.id === state.nearbyHotspot);
+    if (hs) {
+      const hx = hs.x + hs.w / 2;
+      const hy = hs.y - 10;
+      const pulseA = Math.sin(state.time / 400) * 0.2 + 0.7;
+      ctx.font = "bold 8px 'Inter', system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const label = `E  ${hs.label}`;
+      const lw = ctx.measureText(label).width + 14;
+      roundRect(ctx, hx - lw / 2, hy - 9, lw, 18, 5);
+      ctx.fillStyle = `rgba(99,102,241,${pulseA})`;
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.fillText(label, hx, hy);
+    }
+  }
+
+  // ── Render particles ──────────────────────────────────────────────────────
+  for (const p of state.particles) {
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha * 0.6;
+    if (p.type === "steam") {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    } else if (p.type === "leaf") {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size * 1.5, p.size);
+    } else if (p.type === "sparkle") {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+
   // Restore camera transform
   ctx.restore();
+
+  // ── Mini-map (drawn outside camera transform, fixed position) ─────────────
+  drawMiniMap(ctx, state);
+}
+
+// ── Particle system ──────────────────────────────────────────────────────────
+
+function updateParticles(state: RenderState, delta: number) {
+  const dt = delta / 1000;
+
+  // Spawn new particles
+  // Steam from coffee machines (~1040+310 area = copa coffee machine at x:1310,y:390)
+  if (Math.random() < 0.03) {
+    state.particles.push({
+      x: 1323 + Math.random() * 6, y: 390,
+      vx: (Math.random() - 0.5) * 4, vy: -8 - Math.random() * 6,
+      life: 2, maxLife: 2, size: 2 + Math.random() * 2,
+      color: "rgba(200,200,200,0.5)", type: "steam",
+    });
+  }
+
+  // Leaves in jardim (580-1360, 660-860)
+  if (Math.random() < 0.02) {
+    state.particles.push({
+      x: 600 + Math.random() * 720, y: 660,
+      vx: 3 + Math.random() * 5, vy: 8 + Math.random() * 5,
+      life: 4, maxLife: 4, size: 2 + Math.random() * 2,
+      color: Math.random() > 0.5 ? "rgba(74,222,128,0.6)" : "rgba(134,239,172,0.5)",
+      type: "leaf",
+    });
+  }
+
+  // Sparkles on monitors (random desk area)
+  if (Math.random() < 0.01) {
+    const desks = [
+      { x: 490, y: 115 }, { x: 660, y: 115 }, // diretoria
+      { x: 95, y: 415 }, { x: 215, y: 415 },   // dev
+      { x: 670, y: 435 },                        // ops
+    ];
+    const desk = desks[Math.floor(Math.random() * desks.length)];
+    state.particles.push({
+      x: desk.x + Math.random() * 30, y: desk.y + Math.random() * 8,
+      vx: 0, vy: -2,
+      life: 1.5, maxLife: 1.5, size: 1.5,
+      color: "rgba(147,197,253,0.7)", type: "sparkle",
+    });
+  }
+
+  // Update existing
+  for (let i = state.particles.length - 1; i >= 0; i--) {
+    const p = state.particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+    if (p.life <= 0) {
+      state.particles.splice(i, 1);
+    }
+  }
+
+  // Cap max particles
+  if (state.particles.length > 60) {
+    state.particles.splice(0, state.particles.length - 60);
+  }
+}
+
+// ── Mini-map ─────────────────────────────────────────────────────────────────
+
+function drawMiniMap(ctx: CanvasRenderingContext2D, state: RenderState) {
+  const scale = 0.1;
+  const mmW = CANVAS_W * scale;
+  const mmH = CANVAS_H * scale;
+  const mmX = CANVAS_W - mmW - 12;
+  const mmY = CANVAS_H - mmH - 12;
+
+  // Background
+  roundRect(ctx, mmX - 2, mmY - 2, mmW + 4, mmH + 4, 4);
+  ctx.fillStyle = "rgba(0,0,0,0.7)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.1)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Rooms
+  for (const room of ROOMS) {
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(mmX + room.x * scale, mmY + room.y * scale, room.w * scale, room.h * scale);
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(mmX + room.x * scale, mmY + room.y * scale, room.w * scale, room.h * scale);
+  }
+
+  // Agents as colored dots
+  for (const agent of AGENTS) {
+    const anim = state.agentAnims.get(agent.id);
+    if (!anim) continue;
+    const ax = mmX + anim.x * scale;
+    const ay = mmY + anim.y * scale;
+    ctx.beginPath();
+    ctx.arc(ax, ay, agent.id === "joao" ? 3 : 2, 0, Math.PI * 2);
+    ctx.fillStyle = agent.shirtColor;
+    ctx.fill();
+    // João has a white ring
+    if (agent.id === "joao") {
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+  }
+}
+
+// ── Furniture collision check (for pathfinding) ──────────────────────────────
+
+function collidesWithFurniture(x: number, y: number, excludeTypes: string[] = ["rug", "lamp"]): boolean {
+  for (const f of FURNITURE) {
+    if (excludeTypes.includes(f.type)) continue;
+    // Shrink hitbox slightly for better feel
+    const pad = 4;
+    if (x >= f.x + pad && x <= f.x + f.w - pad &&
+        y >= f.y + pad && y <= f.y + f.h - pad) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // ── Hit testing ───────────────────────────────────────────────────────────────

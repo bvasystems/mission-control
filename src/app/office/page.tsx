@@ -113,6 +113,11 @@ function OfficeHelpBar() {
         </span>
         <span className="text-zinc-700">|</span>
         <span className="flex items-center gap-1.5">
+          <kbd className="px-1.5 py-0.5 bg-white/[0.06] rounded text-zinc-400 font-mono text-[9px]">E</kbd>
+          interagir
+        </span>
+        <span className="text-zinc-700">|</span>
+        <span className="flex items-center gap-1.5">
           <Mouse size={10} className="text-zinc-600" />
           Clique em <strong className="text-zinc-400">agente</strong> ou <strong className="text-zinc-400">sala</strong>
         </span>
