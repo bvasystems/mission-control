@@ -5,15 +5,31 @@ import {
   renderOffice,
   hitTestAgent,
   hitTestHotspot,
+  setAgentTarget,
   CANVAS_W,
   CANVAS_H,
+  AGENTS,
   type RenderState,
   type AgentStatus,
   type AgentDispatchIndicator,
 } from "../engine/OfficeRenderer";
+import { getRoomCenter } from "../config/office-map";
 import { useOfficeStore, type PanelType } from "../store";
 import { useAgents } from "../hooks/useOfficeData";
 import { useAllDispatches } from "../hooks/useDispatch";
+
+// ── Agent room assignment based on status ─────────────────────────────────────
+// Maps agent status/activity to a target room
+function getTargetRoom(agentId: string, status: string, hasDispatch: boolean): string | null {
+  // If the agent has an active dispatch, move them to command-center
+  if (hasDispatch) return "command-center";
+
+  // Status-based room assignments
+  if (status === "down") return "server-room";
+
+  // Otherwise stay in default room
+  return null;
+}
 
 export function OfficeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -25,7 +41,9 @@ export function OfficeCanvas() {
     selectedEntity: null,
     agentStatuses: new Map(),
     agentDispatches: new Map(),
+    agentAnims: new Map(),
     time: 0,
+    lastTime: 0,
   });
 
   const { data: agents } = useAgents();
@@ -33,7 +51,7 @@ export function OfficeCanvas() {
   const { openPanel, selectAgent, setHoveredEntity } = useOfficeStore();
   const selectedAgentId = useOfficeStore((s) => s.selectedAgentId);
 
-  // Update agent statuses when data changes
+  // Update agent statuses and trigger room changes
   useEffect(() => {
     if (!agents) return;
     const map = new Map<string, AgentStatus>();
@@ -46,14 +64,38 @@ export function OfficeCanvas() {
       });
     }
     stateRef.current.agentStatuses = map;
+
+    // Update agent room targets based on status
+    for (const agentCfg of AGENTS) {
+      const statusData = map.get(agentCfg.name.toLowerCase());
+      const dispatchData = stateRef.current.agentDispatches.get(agentCfg.name.toLowerCase());
+      const targetRoom = getTargetRoom(
+        agentCfg.id,
+        statusData?.status ?? "idle",
+        dispatchData?.hasActive ?? false
+      );
+
+      if (targetRoom) {
+        const center = getRoomCenter(targetRoom);
+        if (center) {
+          // Add some random offset so agents don't stack
+          const offsetX = (Math.random() - 0.5) * 60;
+          const offsetY = (Math.random() - 0.5) * 40;
+          setAgentTarget(stateRef.current, agentCfg.id, center.x + offsetX, center.y + offsetY);
+        }
+      } else {
+        // Return to default position
+        setAgentTarget(stateRef.current, agentCfg.id, agentCfg.spawnX, agentCfg.spawnY);
+      }
+    }
   }, [agents]);
 
-  // Sync selected agent to render state
+  // Sync selected agent
   useEffect(() => {
     stateRef.current.selectedEntity = selectedAgentId;
   }, [selectedAgentId]);
 
-  // Build dispatch indicators from dispatch history
+  // Build dispatch indicators
   useEffect(() => {
     const map = new Map<string, AgentDispatchIndicator>();
     if (dispatches) {
@@ -69,6 +111,18 @@ export function OfficeCanvas() {
       }
     }
     stateRef.current.agentDispatches = map;
+
+    // Move agents with active dispatches
+    for (const agentCfg of AGENTS) {
+      const dispatchData = map.get(agentCfg.name.toLowerCase());
+      if (dispatchData?.hasActive) {
+        const center = getRoomCenter("command-center");
+        if (center) {
+          const offsetX = (Math.random() - 0.5) * 80;
+          setAgentTarget(stateRef.current, agentCfg.id, center.x + offsetX, center.y);
+        }
+      }
+    }
   }, [dispatches]);
 
   // ── Convert screen coords to canvas coords ─────────────────────────────────
@@ -90,7 +144,7 @@ export function OfficeCanvas() {
       const { x, y } = toCanvasCoords(e.clientX, e.clientY);
       const canvas = canvasRef.current;
 
-      const agent = hitTestAgent(x, y);
+      const agent = hitTestAgent(x, y, stateRef.current);
       const hotspot = hitTestHotspot(x, y);
 
       stateRef.current.hoveredEntity = agent?.id ?? null;
@@ -109,14 +163,12 @@ export function OfficeCanvas() {
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const { x, y } = toCanvasCoords(e.clientX, e.clientY);
 
-      // Check agent first
-      const agent = hitTestAgent(x, y);
+      const agent = hitTestAgent(x, y, stateRef.current);
       if (agent) {
         selectAgent(agent.id);
         return;
       }
 
-      // Check hotspot
       const hotspot = hitTestHotspot(x, y);
       if (hotspot) {
         openPanel(hotspot.actionTarget as PanelType);
@@ -143,7 +195,7 @@ export function OfficeCanvas() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // ── Resize handler: maintain aspect ratio ───────────────────────────────────
+  // ── Resize handler ──────────────────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
@@ -167,7 +219,7 @@ export function OfficeCanvas() {
   }, []);
 
   return (
-    <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden p-4">
+    <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden p-2">
       <canvas
         ref={canvasRef}
         width={CANVAS_W}
