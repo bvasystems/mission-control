@@ -3,6 +3,23 @@
 
 export type OfficeAgentStatus = "idle" | "active" | "degraded" | "down";
 
+// ── Agent Activity States (what the agent is visually doing) ──────────────────
+export type AgentActivityState =
+  | "idle"
+  | "thinking"
+  | "coding"
+  | "reading"
+  | "talking"
+  | "waiting"
+  | "done";
+
+export interface AgentActivity {
+  state: AgentActivityState;
+  label: string;      // contextual text for speech bubble
+  targetAgent?: string; // who they're talking to / waiting for
+  since: number;       // timestamp when this state started
+}
+
 export type DispatchState =
   | "queued"
   | "sent"

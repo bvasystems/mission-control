@@ -6,6 +6,7 @@ import {
   ROOMS, HOTSPOTS, FURNITURE, AGENTS, CANVAS_W, CANVAS_H, TILE, WALL_H,
   type Room, type Hotspot, type Furniture, type AgentConfig, type FloorType,
 } from "../config/office-map";
+import type { AgentActivity } from "../types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ export interface RenderState {
   agentStatuses: Map<string, AgentStatus>;
   agentDispatches: Map<string, AgentDispatchIndicator>;
   agentAnims: Map<string, AgentAnimState>;
+  agentActivities: Map<string, AgentActivity>;
   alertRooms: Map<string, "warning" | "critical">;
   cameraX: number;
   cameraY: number;
@@ -1705,50 +1707,78 @@ function drawCharacter(
     ctx.stroke();
   }
 
-  // ── Dispatch speech bubble (command active) ──────────────────────────────────
-  if (dispatchData?.hasActive) {
-    const bubbleX = x + 16;
-    const bubbleY = y + bob - CHAR_H / 2 - HEAD_R * 2 - 20;
-    const bubbleW = 28;
-    const bubbleH = 18;
-    const floatY = Math.sin(state.time / 400) * 2;
+  // ── Activity speech bubble ───────────────────────────────────────────────────
+  const activity = state.agentActivities.get(agent.id);
+  const activityState = activity?.state ?? "idle";
+
+  if (activityState !== "idle") {
+    const bubbleX = x + 18;
+    const bubbleY = y + bob - CHAR_H / 2 - HEAD_R * 2 - 22;
+    const floatY = Math.sin(state.time / 500) * 1.5;
+    const label = activity?.label ?? "";
+
+    // Bubble config by state
+    const BUBBLE_STYLES: Record<string, { bg: string; glow: string; icon: string }> = {
+      thinking:  { bg: "rgba(168,85,247,0.9)",  glow: "rgba(168,85,247,0.4)", icon: "💭" },
+      coding:    { bg: "rgba(59,130,246,0.9)",   glow: "rgba(59,130,246,0.4)", icon: "⌨️" },
+      reading:   { bg: "rgba(16,185,129,0.9)",   glow: "rgba(16,185,129,0.4)", icon: "📖" },
+      talking:   { bg: "rgba(245,158,11,0.9)",   glow: "rgba(245,158,11,0.4)", icon: "💬" },
+      waiting:   { bg: "rgba(107,114,128,0.9)",  glow: "rgba(107,114,128,0.3)", icon: "⏳" },
+      done:      { bg: "rgba(34,197,94,0.9)",    glow: "rgba(34,197,94,0.4)",  icon: "✓" },
+    };
+    const style = BUBBLE_STYLES[activityState] ?? BUBBLE_STYLES.thinking;
+
+    // Measure label to size bubble
+    ctx.font = "9px 'Inter', system-ui, sans-serif";
+    const labelW = label ? ctx.measureText(label).width : 0;
+    const bubbleW = Math.max(24, labelW + 22);
+    const bubbleH = label ? 20 : 16;
 
     ctx.save();
-
-    // Bubble shadow
-    ctx.shadowColor = "rgba(99,102,241,0.4)";
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = style.glow;
+    ctx.shadowBlur = 10;
 
     // Bubble body
-    roundRect(ctx, bubbleX - bubbleW / 2, bubbleY + floatY - bubbleH / 2, bubbleW, bubbleH, 6);
-    ctx.fillStyle = "rgba(99,102,241,0.95)";
+    roundRect(ctx, bubbleX - bubbleW / 2, bubbleY + floatY - bubbleH / 2, bubbleW, bubbleH, 7);
+    ctx.fillStyle = style.bg;
     ctx.fill();
-
     ctx.restore();
 
-    // Bubble tail (triangle pointing down-left toward character)
+    // Bubble tail
     ctx.beginPath();
-    ctx.moveTo(bubbleX - 6, bubbleY + floatY + bubbleH / 2 - 2);
-    ctx.lineTo(bubbleX - 12, bubbleY + floatY + bubbleH / 2 + 6);
-    ctx.lineTo(bubbleX - 2, bubbleY + floatY + bubbleH / 2 - 2);
-    ctx.fillStyle = "rgba(99,102,241,0.95)";
+    ctx.moveTo(bubbleX - 5, bubbleY + floatY + bubbleH / 2 - 2);
+    ctx.lineTo(bubbleX - 10, bubbleY + floatY + bubbleH / 2 + 5);
+    ctx.lineTo(bubbleX - 1, bubbleY + floatY + bubbleH / 2 - 2);
+    ctx.fillStyle = style.bg;
     ctx.fill();
 
-    // "..." or "!" text
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 10px sans-serif";
+    // Icon + label
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    // Animate between "..." and "!"
-    const dotPhase = Math.floor(state.time / 500) % 4;
-    const dotText = dotPhase === 3 ? "!" : ".".repeat(dotPhase + 1);
-    ctx.fillText(dotText, bubbleX, bubbleY + floatY);
+    if (label) {
+      ctx.font = "9px 'Inter', system-ui, sans-serif";
+      ctx.fillStyle = "#fff";
+      ctx.fillText(`${style.icon} ${label}`, bubbleX, bubbleY + floatY);
+    } else {
+      // Icon only with animation
+      ctx.font = "11px sans-serif";
+      ctx.fillStyle = "#fff";
+      if (activityState === "thinking" || activityState === "waiting") {
+        const dotPhase = Math.floor(state.time / 400) % 4;
+        const dots = dotPhase === 3 ? style.icon : ".".repeat(dotPhase + 1);
+        ctx.fillText(dots, bubbleX, bubbleY + floatY);
+      } else if (activityState === "done") {
+        ctx.fillText("✓", bubbleX, bubbleY + floatY);
+      } else {
+        ctx.fillText(style.icon, bubbleX, bubbleY + floatY);
+      }
+    }
 
-    // Pulsing ring around character
-    const ringPulse = Math.sin(state.time / 300) * 0.3 + 0.5;
+    // Activity ring on ground
+    const ringAlpha = Math.sin(state.time / 350) * 0.25 + 0.4;
     ctx.beginPath();
-    ctx.ellipse(x, y + bob + CHAR_H / 2 + 4, 22, 9, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(99,102,241,${ringPulse})`;
+    ctx.ellipse(x, y + bob + CHAR_H / 2 + 4, 20, 8, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = style.bg.replace(/[\d.]+\)$/, `${ringAlpha})`);
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }

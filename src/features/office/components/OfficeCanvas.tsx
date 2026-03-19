@@ -18,6 +18,7 @@ import { getRoomCenter } from "../config/office-map";
 import { useOfficeStore, type PanelType } from "../store";
 import { useAgents, useIncidents, useTasks } from "../hooks/useOfficeData";
 import { useAllDispatches } from "../hooks/useDispatch";
+import { computeActivity } from "../engine/activityEngine";
 import { determineRoom } from "../engine/roomAssignment";
 
 // ── Room → Panel mapping ──────────────────────────────────────────────────────
@@ -46,6 +47,7 @@ export function OfficeCanvas() {
     agentStatuses: new Map(),
     agentDispatches: new Map(),
     agentAnims: new Map(),
+    agentActivities: new Map(),
     alertRooms: new Map(),
     cameraX: 0,
     cameraY: 0,
@@ -111,7 +113,30 @@ export function OfficeCanvas() {
     }
     state.alertRooms = alertMap;
 
-    // 4. Room assignment per agent (skip João — player controlled)
+    // 4. Compute activity state per agent
+    const activityMap = new Map<string, ReturnType<typeof computeActivity>>();
+    for (const agentCfg of AGENTS) {
+      const nameKey = agentCfg.name.toLowerCase();
+      const statusData = statusMap.get(nameKey);
+      const agentDispatches = dispatches?.filter(
+        (d) => d.target_agent === nameKey || d.issued_by === nameKey
+      ) ?? [];
+      const agentTasks = tasks?.filter(
+        (t) => (t.owner?.toLowerCase() === nameKey || t.assigned_to?.toLowerCase() === nameKey) &&
+               t.column !== "done"
+      ) ?? [];
+
+      const activity = computeActivity({
+        agentName: nameKey,
+        agentStatus: statusData?.status ?? "idle",
+        dispatches: agentDispatches,
+        tasks: agentTasks,
+      });
+      activityMap.set(agentCfg.id, activity);
+    }
+    state.agentActivities = activityMap;
+
+    // 5. Room assignment per agent (skip João — player controlled)
     for (const agentCfg of AGENTS) {
       if (agentCfg.id === "joao") continue; // Player-controlled
       const nameKey = agentCfg.name.toLowerCase();
