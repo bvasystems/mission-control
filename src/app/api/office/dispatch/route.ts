@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const BRIDGE_URL = "https://bridge.axiushub.online";
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -20,6 +24,116 @@ const updateSchema = z.object({
   status: z.enum(["queued", "sent", "acknowledged", "blocked", "done", "failed"]).optional(),
   response: z.string().optional(),
 });
+
+// ── Bridge call helper ────────────────────────────────────────────────────────
+
+async function callBridgeAndUpdate(
+  dispatchId: string,
+  targetAgent: string,
+  commandText: string,
+  actionType?: string
+) {
+  const bridgeToken = process.env.BRIDGE_TOKEN;
+  if (!bridgeToken) {
+    console.error("dispatch/after: BRIDGE_TOKEN not configured");
+    await db.query(
+      `UPDATE office_dispatches
+       SET response = 'BRIDGE_TOKEN não configurado', status = 'failed',
+           responded_at = NOW(), updated_at = NOW()
+       WHERE id = $1`,
+      [dispatchId]
+    );
+    return;
+  }
+
+  const actionContext: Record<string, string> = {
+    ask_update: "[Pedido de atualização de status]",
+    delegate_task: "[Tarefa delegada]",
+    mark_blocked: "[Solicitação para marcar como bloqueado]",
+    request_review: "[Pedido de revisão]",
+    escalate: "[URGENTE — Escalada]",
+    free_command: "",
+    meeting_command: "[Mensagem na reunião de equipe]",
+  };
+
+  const prefix = actionType ? (actionContext[actionType] ?? "") : "";
+  const fullCommand = prefix ? `${prefix} ${commandText}` : commandText;
+
+  try {
+    const bridgeRes = await fetch(
+      `${BRIDGE_URL}/agents/${encodeURIComponent(targetAgent.toLowerCase())}/command`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-bridge-token": bridgeToken,
+        },
+        body: JSON.stringify({
+          command: fullCommand,
+          actionType: actionType ?? "free_command",
+          context: {
+            source: "mission-control",
+            requestedBy: "joao",
+            dispatchId,
+          },
+          timeoutSeconds: 55,
+        }),
+      }
+    );
+
+    if (!bridgeRes.ok) {
+      const errText = await bridgeRes.text();
+      throw new Error(`Bridge API ${bridgeRes.status}: ${errText}`);
+    }
+
+    const bridgeData = await bridgeRes.json();
+
+    // Extrair texto limpo da resposta
+    let responseText = "Mensagem recebida.";
+
+    const payloads = bridgeData?.data?.response?.result?.payloads;
+    if (Array.isArray(payloads) && payloads.length) {
+      responseText = payloads
+        .map((p: { text?: string }) => p.text)
+        .filter(Boolean)
+        .join("\n");
+    } else if (bridgeData?.data?.responsePreview) {
+      const preview = bridgeData.data.responsePreview;
+      try {
+        const parsed = JSON.parse(preview);
+        const innerPayloads = parsed?.result?.payloads;
+        if (Array.isArray(innerPayloads) && innerPayloads.length) {
+          responseText = innerPayloads
+            .map((p: { text?: string }) => p.text)
+            .filter(Boolean)
+            .join("\n");
+        } else {
+          responseText = preview;
+        }
+      } catch {
+        responseText = preview;
+      }
+    }
+
+    await db.query(
+      `UPDATE office_dispatches
+       SET response = $1, responded_at = NOW(), status = 'done', updated_at = NOW()
+       WHERE id = $2`,
+      [responseText, dispatchId]
+    );
+  } catch (error) {
+    console.error("dispatch/after bridge error:", error);
+    await db.query(
+      `UPDATE office_dispatches
+       SET response = $1, responded_at = NOW(), status = 'failed', updated_at = NOW()
+       WHERE id = $2`,
+      [
+        `Erro ao contactar agente: ${error instanceof Error ? error.message : String(error)}`,
+        dispatchId,
+      ]
+    );
+  }
+}
 
 // ── GET /api/office/dispatch ──────────────────────────────────────────────────
 
@@ -69,7 +183,6 @@ export async function GET(req: NextRequest) {
 }
 
 // ── POST /api/office/dispatch ─────────────────────────────────────────────────
-// Creates a new dispatch, updates status, or adds a response.
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -81,7 +194,7 @@ export async function POST(req: NextRequest) {
 
   const bodyObj = body as Record<string, unknown>;
 
-  // ── Branch: update existing dispatch (status change or agent response) ─────
+  // ── Branch: update existing dispatch ──────────────────────────────────────
   if (bodyObj?.id) {
     const parsed = updateSchema.safeParse(bodyObj);
     if (!parsed.success) {
@@ -91,7 +204,6 @@ export async function POST(req: NextRequest) {
     const { id, status, response } = parsed.data;
 
     try {
-      // Build dynamic SET clause
       const sets: string[] = ["updated_at = NOW()"];
       const vals: unknown[] = [];
       let idx = 1;
@@ -104,7 +216,6 @@ export async function POST(req: NextRequest) {
         sets.push(`response = $${idx++}`);
         vals.push(response);
         sets.push(`responded_at = NOW()`);
-        // Auto-set to "done" when agent responds (if not already done/failed)
         if (!status) {
           sets.push(`status = CASE WHEN status NOT IN ('done', 'failed') THEN 'done' ELSE status END`);
         }
@@ -131,7 +242,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Branch: create new dispatch ─────────────────────────────────────────────
+  // ── Branch: create new dispatch ───────────────────────────────────────────
   const parsed = createSchema.safeParse(bodyObj);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
@@ -155,7 +266,21 @@ export async function POST(req: NextRequest) {
       ]
     );
 
-    return NextResponse.json({ ok: true, data: q.rows[0] }, { status: 201 });
+    const dispatch = q.rows[0];
+
+    // ── Chamar Bridge API via after() — roda após enviar resposta ao browser ──
+    if (d.targetAgent.toLowerCase() !== "joao") {
+      after(async () => {
+        await callBridgeAndUpdate(
+          dispatch.id,
+          d.targetAgent,
+          d.commandText,
+          d.actionType
+        );
+      });
+    }
+
+    return NextResponse.json({ ok: true, data: dispatch }, { status: 201 });
   } catch (error) {
     console.error("Failed to create dispatch:", error);
     return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });
