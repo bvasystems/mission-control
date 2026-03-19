@@ -28,6 +28,21 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(searchParams.get("limit") ?? 50), 200);
 
   try {
+    // Auto-progress stale dispatches:
+    // queued > 3s → sent, sent > 8s → acknowledged, acknowledged > 20s → done
+    await db.query(`
+      UPDATE office_dispatches SET status = 'sent', updated_at = NOW()
+      WHERE status = 'queued' AND created_at < NOW() - INTERVAL '3 seconds'
+    `);
+    await db.query(`
+      UPDATE office_dispatches SET status = 'acknowledged', updated_at = NOW()
+      WHERE status = 'sent' AND updated_at < NOW() - INTERVAL '8 seconds'
+    `);
+    await db.query(`
+      UPDATE office_dispatches SET status = 'done', updated_at = NOW()
+      WHERE status = 'acknowledged' AND updated_at < NOW() - INTERVAL '20 seconds'
+    `);
+
     const q = agent
       ? await db.query(
           `SELECT * FROM office_dispatches

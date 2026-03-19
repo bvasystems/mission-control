@@ -18,19 +18,6 @@ import { useOfficeStore, type PanelType } from "../store";
 import { useAgents } from "../hooks/useOfficeData";
 import { useAllDispatches } from "../hooks/useDispatch";
 
-// ── Agent room assignment based on status ─────────────────────────────────────
-// Maps agent status/activity to a target room
-function getTargetRoom(agentId: string, status: string, hasDispatch: boolean): string | null {
-  // If the agent has an active dispatch, move them to command-center
-  if (hasDispatch) return "command-center";
-
-  // Status-based room assignments
-  if (status === "down") return "server-room";
-
-  // Otherwise stay in default room
-  return null;
-}
-
 export function OfficeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,79 +38,77 @@ export function OfficeCanvas() {
   const { openPanel, selectAgent, setHoveredEntity } = useOfficeStore();
   const selectedAgentId = useOfficeStore((s) => s.selectedAgentId);
 
-  // Update agent statuses and trigger room changes
-  useEffect(() => {
-    if (!agents) return;
-    const map = new Map<string, AgentStatus>();
-    for (const a of agents) {
-      map.set(a.name.toLowerCase(), {
-        id: a.id,
-        status: a.status,
-        messages_24h: a.messages_24h,
-        errors_24h: a.errors_24h,
-      });
-    }
-    stateRef.current.agentStatuses = map;
-
-    // Update agent room targets based on status
-    for (const agentCfg of AGENTS) {
-      const statusData = map.get(agentCfg.name.toLowerCase());
-      const dispatchData = stateRef.current.agentDispatches.get(agentCfg.name.toLowerCase());
-      const targetRoom = getTargetRoom(
-        agentCfg.id,
-        statusData?.status ?? "idle",
-        dispatchData?.hasActive ?? false
-      );
-
-      if (targetRoom) {
-        const center = getRoomCenter(targetRoom);
-        if (center) {
-          // Add some random offset so agents don't stack
-          const offsetX = (Math.random() - 0.5) * 60;
-          const offsetY = (Math.random() - 0.5) * 40;
-          setAgentTarget(stateRef.current, agentCfg.id, center.x + offsetX, center.y + offsetY);
-        }
-      } else {
-        // Return to default position
-        setAgentTarget(stateRef.current, agentCfg.id, agentCfg.spawnX, agentCfg.spawnY);
-      }
-    }
-  }, [agents]);
-
   // Sync selected agent
   useEffect(() => {
     stateRef.current.selectedEntity = selectedAgentId;
   }, [selectedAgentId]);
 
-  // Build dispatch indicators
+  // ── Combined effect: sync statuses + dispatches + movement ──────────────────
+  // Runs whenever agents data OR dispatches data changes
   useEffect(() => {
-    const map = new Map<string, AgentDispatchIndicator>();
+    const state = stateRef.current;
+
+    // 1. Update agent statuses
+    const statusMap = new Map<string, AgentStatus>();
+    if (agents) {
+      for (const a of agents) {
+        statusMap.set(a.name.toLowerCase(), {
+          id: a.id,
+          status: a.status,
+          messages_24h: a.messages_24h,
+          errors_24h: a.errors_24h,
+        });
+      }
+    }
+    state.agentStatuses = statusMap;
+
+    // 2. Build dispatch indicators
+    const dispatchMap = new Map<string, AgentDispatchIndicator>();
     if (dispatches) {
       for (const d of dispatches) {
         const key = d.target_agent.toLowerCase();
-        const existing = map.get(key);
-        const isActive = d.status === "queued" || d.status === "sent";
+        const existing = dispatchMap.get(key);
+        const isActive = d.status === "queued" || d.status === "sent" || d.status === "acknowledged";
         if (!existing) {
-          map.set(key, { hasActive: isActive, lastStatus: d.status });
+          dispatchMap.set(key, { hasActive: isActive, lastStatus: d.status });
         } else if (isActive) {
           existing.hasActive = true;
         }
       }
     }
-    stateRef.current.agentDispatches = map;
+    state.agentDispatches = dispatchMap;
 
-    // Move agents with active dispatches
+    // 3. Move agents based on combined state
     for (const agentCfg of AGENTS) {
-      const dispatchData = map.get(agentCfg.name.toLowerCase());
-      if (dispatchData?.hasActive) {
-        const center = getRoomCenter("command-center");
+      const nameKey = agentCfg.name.toLowerCase();
+      const statusData = statusMap.get(nameKey);
+      const dispatchData = dispatchMap.get(nameKey);
+      const status = statusData?.status ?? "idle";
+      const hasActiveDispatch = dispatchData?.hasActive ?? false;
+
+      let targetRoom: string | null = null;
+
+      if (hasActiveDispatch) {
+        targetRoom = "command-center";
+      } else if (status === "down") {
+        targetRoom = "server-room";
+      }
+
+      if (targetRoom) {
+        const center = getRoomCenter(targetRoom);
         if (center) {
-          const offsetX = (Math.random() - 0.5) * 80;
-          setAgentTarget(stateRef.current, agentCfg.id, center.x + offsetX, center.y);
+          // Deterministic offset based on agent id to avoid random jitter
+          const hash = agentCfg.id.charCodeAt(0) + agentCfg.id.charCodeAt(agentCfg.id.length - 1);
+          const offsetX = ((hash % 7) - 3) * 25;
+          const offsetY = ((hash % 5) - 2) * 15;
+          setAgentTarget(state, agentCfg.id, center.x + offsetX, center.y + offsetY);
         }
+      } else {
+        // Return to default spawn
+        setAgentTarget(state, agentCfg.id, agentCfg.spawnX, agentCfg.spawnY);
       }
     }
-  }, [dispatches]);
+  }, [agents, dispatches]);
 
   // ── Convert screen coords to canvas coords ─────────────────────────────────
   const toCanvasCoords = useCallback((clientX: number, clientY: number) => {

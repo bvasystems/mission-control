@@ -580,22 +580,52 @@ function drawCharacter(
     ctx.stroke();
   }
 
-  // ── Dispatch badge (command pending) ────────────────────────────────────────
+  // ── Dispatch speech bubble (command active) ──────────────────────────────────
   if (dispatchData?.hasActive) {
-    const bx = x - 10;
-    const by = y + bob - CHAR_H / 2 - HEAD_R * 2 - 2;
-    const dp = Math.sin(state.time / 350) * 0.3 + 0.7;
+    const bubbleX = x + 14;
+    const bubbleY = y + bob - CHAR_H / 2 - HEAD_R * 2 - 18;
+    const bubbleW = 28;
+    const bubbleH = 18;
+    const floatY = Math.sin(state.time / 400) * 2;
 
-    ctx.beginPath();
-    ctx.arc(bx, by, 5, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(99,102,241,${dp})`;
+    ctx.save();
+
+    // Bubble shadow
+    ctx.shadowColor = "rgba(99,102,241,0.4)";
+    ctx.shadowBlur = 8;
+
+    // Bubble body
+    roundRect(ctx, bubbleX - bubbleW / 2, bubbleY + floatY - bubbleH / 2, bubbleW, bubbleH, 6);
+    ctx.fillStyle = "rgba(99,102,241,0.95)";
     ctx.fill();
 
+    ctx.restore();
+
+    // Bubble tail (triangle pointing down-left toward character)
+    ctx.beginPath();
+    ctx.moveTo(bubbleX - 6, bubbleY + floatY + bubbleH / 2 - 2);
+    ctx.lineTo(bubbleX - 12, bubbleY + floatY + bubbleH / 2 + 6);
+    ctx.lineTo(bubbleX - 2, bubbleY + floatY + bubbleH / 2 - 2);
+    ctx.fillStyle = "rgba(99,102,241,0.95)";
+    ctx.fill();
+
+    // "..." or "!" text
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 7px sans-serif";
+    ctx.font = "bold 10px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("!", bx, by);
+    // Animate between "..." and "!"
+    const dotPhase = Math.floor(state.time / 500) % 4;
+    const dotText = dotPhase === 3 ? "!" : ".".repeat(dotPhase + 1);
+    ctx.fillText(dotText, bubbleX, bubbleY + floatY);
+
+    // Pulsing ring around character
+    const ringPulse = Math.sin(state.time / 300) * 0.3 + 0.5;
+    ctx.beginPath();
+    ctx.ellipse(x, y + bob + CHAR_H / 2 + 4, 20, 8, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(99,102,241,${ringPulse})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
   }
 }
 

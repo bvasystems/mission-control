@@ -9,15 +9,24 @@ const fetcher = (url: string) =>
 export function useDispatchHistory(agentName: string | null) {
   const key = agentName ? `/api/office/dispatch?agent=${agentName}&limit=20` : null;
   return useSWR<AgentDispatch[]>(key, fetcher, {
-    refreshInterval: 10_000,
+    refreshInterval: 3_000, // Fast polling to see status transitions
   });
 }
 
 // ── All recent dispatches (for canvas indicators) ─────────────────────────────
 export function useAllDispatches() {
   return useSWR<AgentDispatch[]>("/api/office/dispatch?limit=50", fetcher, {
-    refreshInterval: 15_000,
+    refreshInterval: 3_000, // Fast polling for movement triggers
   });
+}
+
+// ── Force revalidate all dispatch caches ──────────────────────────────────────
+function revalidateAll() {
+  mutate(
+    (key: unknown) => typeof key === "string" && key.includes("/api/office/dispatch"),
+    undefined,
+    { revalidate: true }
+  );
 }
 
 // ── Send a dispatch command ───────────────────────────────────────────────────
@@ -43,12 +52,13 @@ export function useSendDispatch() {
         return null;
       }
 
-      // Revalidate caches
-      mutate(
-        (key: unknown) => typeof key === "string" && key.startsWith("/api/office/dispatch"),
-        undefined,
-        { revalidate: true }
-      );
+      // Immediate revalidation
+      revalidateAll();
+
+      // Also revalidate again after 1s to catch status transition
+      setTimeout(revalidateAll, 1000);
+      setTimeout(revalidateAll, 4000);
+      setTimeout(revalidateAll, 10000);
 
       return data.data as AgentDispatch;
     } catch (err) {
