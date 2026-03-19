@@ -630,15 +630,15 @@ function MeetingPanel() {
   const { send, sending } = useSendDispatch();
   const [lastSent, setLastSent] = useState<string | null>(null);
 
-  // Match agents by normalized name (strip accents) to align with config IDs
-  const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // Use agent DB id for matching (consistent with config ids)
+  const agentKey = (a: Agent) => a.id?.toString() ?? a.name.toLowerCase();
 
   const inMeeting = agents?.filter((a) =>
-    meetingAgents.includes(normalize(a.name))
+    meetingAgents.includes(agentKey(a))
   ) ?? [];
 
   const available = agents?.filter((a) =>
-    !meetingAgents.includes(normalize(a.name))
+    !meetingAgents.includes(agentKey(a))
   ) ?? [];
 
   const handleGroupSend = async () => {
@@ -688,7 +688,7 @@ function MeetingPanel() {
                   <p className="text-[10px] text-zinc-500">{a.status}</p>
                 </div>
                 <button
-                  onClick={() => removeFromMeeting(normalize(a.name))}
+                  onClick={() => removeFromMeeting(agentKey(a))}
                   className="text-zinc-600 hover:text-zinc-400 text-xs"
                 >
                   Dispensar
@@ -707,7 +707,7 @@ function MeetingPanel() {
             {available.map((a) => (
               <button
                 key={a.id}
-                onClick={() => addToMeeting(normalize(a.name))}
+                onClick={() => addToMeeting(agentKey(a))}
                 className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors text-left"
               >
                 <div className={`w-2 h-2 rounded-full ${STATUS_DOT[a.status]}`} />
@@ -754,7 +754,9 @@ function MeetingPanel() {
       {meetingAgents.length === 0 && (
         <button
           onClick={() => {
-            const allIds = agents?.map((a) => normalize(a.name)) ?? [];
+            // Use DB ids + add "joao" (operator, not in agents_status table)
+            const allIds = agents?.map((a) => agentKey(a)) ?? [];
+            if (!allIds.includes("joao")) allIds.push("joao");
             useOfficeStore.getState().callToMeeting(allIds);
           }}
           className="w-full py-3 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/20 text-indigo-300 text-sm transition-colors"
