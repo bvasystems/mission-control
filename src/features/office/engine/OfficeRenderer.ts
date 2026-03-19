@@ -1866,11 +1866,9 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
       anim.targetX = anim.x;
       anim.targetY = anim.y;
 
-      // Update camera to follow João (smooth lerp)
-      const camTargetX = Math.max(0, Math.min(CANVAS_W * 0.3, anim.x - CANVAS_W / 2));
-      const camTargetY = Math.max(0, Math.min(CANVAS_H * 0.3, anim.y - CANVAS_H / 2));
-      state.cameraX += (camTargetX - state.cameraX) * 0.05;
-      state.cameraY += (camTargetY - state.cameraY) * 0.05;
+      // Camera fixa — escritório cabe na viewport, não precisa de follow
+      state.cameraX = 0;
+      state.cameraY = 0;
 
       continue;
     }
