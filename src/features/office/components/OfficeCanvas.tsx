@@ -39,8 +39,10 @@ function simpleActivity(
 ): AgentActivity {
   const now = Date.now();
   if (hasDispatch) return { state: "thinking", label: "Processando...", since: now };
-  if (status === "degraded") return { state: "thinking", label: "Diagnosticando...", since: now };
-  if (hasTask) return { state: "coding", label: "Trabalhando...", since: now };
+  if (status === "degraded") return { state: "waiting", label: "Degradado", since: now };
+  if (status === "down") return { state: "waiting", label: "Offline", since: now };
+  if (hasTask) return { state: "coding", label: "Em tarefa", since: now };
+  if (status === "active") return { state: "done", label: "Disponivel", since: now };
   return { state: "idle", label: "", since: now };
 }
 
@@ -108,12 +110,14 @@ export function OfficeCanvas() {
     state.agentDispatches = dispatchMap;
 
     // 3. Incident alerts
-    const alertMap = new Map<string, "warning" | "critical">();
+    const alertMap = new Map<string, string>();
     const openIncidents = incidents?.filter((i) => i.status !== "closed") ?? [];
     if (openIncidents.some((i) => i.severity === "critical")) {
       alertMap.set("sala-reuniao", "critical");
+      alertMap.set("sala-reuniao:count", String(openIncidents.length));
     } else if (openIncidents.some((i) => i.severity === "high")) {
       alertMap.set("sala-reuniao", "warning");
+      alertMap.set("sala-reuniao:count", String(openIncidents.length));
     }
     state.alertRooms = alertMap;
 

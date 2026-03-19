@@ -47,7 +47,7 @@ export interface RenderState {
   agentDispatches: Map<string, AgentDispatchIndicator>;
   agentAnims: Map<string, AgentAnimState>;
   agentActivities: Map<string, AgentActivity>;
-  alertRooms: Map<string, "warning" | "critical">;
+  alertRooms: Map<string, string>;
   cameraX: number;
   cameraY: number;
   time: number;
@@ -1545,6 +1545,17 @@ function drawCharacter(
   ctx.fillStyle = agent.skinColor;
   ctx.fillRect(-3, -CHAR_H / 2 - 3, 6, 5);
 
+  // Head outline ring (contraste — cor do agente)
+  ctx.beginPath();
+  ctx.arc(0, headY, HEAD_R + 2, 0, Math.PI * 2);
+  ctx.fillStyle = isHovered || isSelected ? agent.shirtColor : "rgba(0,0,0,0.4)";
+  ctx.fill();
+  if (isHovered) {
+    ctx.strokeStyle = agent.shirtColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
   // Head circle
   ctx.beginPath();
   ctx.arc(0, headY, HEAD_R, 0, Math.PI * 2);
@@ -1654,25 +1665,26 @@ function drawCharacter(
 
   ctx.restore();
 
-  // ── Name tag (not scaled) ─────────────────────────────────────────────────
-  const tagY = y + bob - CHAR_H / 2 - HEAD_R * 2 - 12;
+  // ── Name tag (ALWAYS visible, below character) ──────────────────────────────
+  const tagY = y + bob + CHAR_H / 2 + 14;
   const nameStr = agent.name;
-  ctx.font = `${isSelected ? "bold " : ""}9px 'Inter', system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // Tag background
-  const nameW = ctx.measureText(nameStr).width + 12;
-  roundRect(ctx, x - nameW / 2, tagY - 8, nameW, 16, 4);
+  // Name
+  ctx.font = `bold 9px 'Inter', system-ui, sans-serif`;
+  const nameW = ctx.measureText(nameStr).width + 14;
+  const tagH = isHovered || isSelected ? 26 : 16;
+  roundRect(ctx, x - nameW / 2, tagY - 8, nameW, tagH, 5);
   ctx.fillStyle = isSelected
     ? "rgba(99,102,241,0.9)"
     : isHovered
-      ? "rgba(0,0,0,0.85)"
-      : "rgba(0,0,0,0.6)";
+      ? "rgba(0,0,0,0.88)"
+      : "rgba(0,0,0,0.55)";
   ctx.fill();
 
   if (isSelected || isHovered) {
-    ctx.strokeStyle = isSelected ? "rgba(99,102,241,0.6)" : "rgba(255,255,255,0.15)";
+    ctx.strokeStyle = isSelected ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.12)";
     ctx.lineWidth = 1;
     ctx.stroke();
   }
@@ -1680,28 +1692,30 @@ function drawCharacter(
   ctx.fillStyle = "#fff";
   ctx.fillText(nameStr, x, tagY);
 
-  // ── Role tag (below name, only on hover/select) ─────────────────────────────
+  // Role (always visible below name on hover/select)
   if (isHovered || isSelected) {
-    ctx.font = "8px 'Inter', system-ui, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
-    ctx.fillText(agent.role, x, tagY + 15);
+    ctx.font = "7px 'Inter', system-ui, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillText(agent.role, x, tagY + 11);
   }
 
-  // ── Status dot ──────────────────────────────────────────────────────────────
+  // ── Status dot (next to nametag) ────────────────────────────────────────────
   const statusColor = STATUS_COLORS[status] ?? STATUS_COLORS.idle;
+  const dotX = x + ctx.measureText(nameStr).width / 2 + 11;
+  const dotY = tagY;
   ctx.beginPath();
-  ctx.arc(x + 12, y + bob - CHAR_H / 2 - HEAD_R * 2 - 2, 4, 0, Math.PI * 2);
+  ctx.arc(dotX, dotY, 3.5, 0, Math.PI * 2);
   ctx.fillStyle = statusColor;
   ctx.fill();
   ctx.strokeStyle = "rgba(0,0,0,0.5)";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 0.8;
   ctx.stroke();
 
   // Active pulse ring
   if (status === "active") {
     const pulse = Math.sin(state.time / 500) * 0.4 + 0.6;
     ctx.beginPath();
-    ctx.arc(x + 12, y + bob - CHAR_H / 2 - HEAD_R * 2 - 2, 7, 0, Math.PI * 2);
+    ctx.arc(dotX, dotY, 6, 0, Math.PI * 2);
     ctx.strokeStyle = `rgba(34,197,94,${pulse * 0.5})`;
     ctx.lineWidth = 1;
     ctx.stroke();
@@ -1960,19 +1974,22 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
       ctx.lineWidth = 2;
       ctx.strokeRect(room.x + 1, room.y + 1, room.w - 2, room.h - 2);
 
-      // Alert badge
-      const badgeText = alert === "critical" ? "CRITICAL" : "ALERT";
-      ctx.font = "bold 8px 'Courier New', monospace";
-      const tw = ctx.measureText(badgeText).width + 8;
+      // Alert badge with incident count
+      const alertCount = state.alertRooms.get(room.id + ":count") ?? "";
+      const badgeText = alert === "critical"
+        ? `${alertCount ? alertCount + " " : ""}INCIDENTE${alertCount && Number(alertCount) > 1 ? "S" : ""}`
+        : "ALERTA";
+      ctx.font = "bold 8px 'Inter', system-ui, sans-serif";
+      const tw = ctx.measureText(badgeText).width + 12;
       const bx = room.x + room.w - tw - 6;
       const by = room.y + 6;
-      roundRect(ctx, bx, by, tw, 14, 3);
+      roundRect(ctx, bx, by, tw, 16, 4);
       ctx.fillStyle = alert === "critical" ? "rgba(239,68,68,0.9)" : "rgba(245,158,11,0.9)";
       ctx.fill();
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(badgeText, bx + tw / 2, by + 7);
+      ctx.fillText(badgeText, bx + tw / 2, by + 8);
     }
   }
 
@@ -2002,31 +2019,37 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
   }
 
   // ── Room labels (drawn LAST as overlay, above everything) ────────────────
+  const ROOM_ICONS: Record<string, string> = {
+    "recepcao": "🏢", "diretoria": "👔", "sala-reuniao": "🎯",
+    "desenvolvimento": "💻", "operacoes": "📊", "copa": "☕",
+  };
+
   for (const room of ROOMS) {
+    const icon = ROOM_ICONS[room.id] ?? "";
     const labelText = room.label.toUpperCase();
     ctx.font = "bold 11px 'Inter', system-ui, sans-serif";
-    const metrics = ctx.measureText(labelText);
-    const labelW = metrics.width + 16;
-    const labelH = 20;
+    const textW = ctx.measureText(labelText).width;
+    const fullText = icon ? `${icon}  ${labelText}` : labelText;
+    const labelW = textW + (icon ? 28 : 16);
+    const labelH = 22;
     const lx = room.x + room.w / 2 - labelW / 2;
-    // Place above room if there's space, otherwise inside top
     const ly = room.y > 50
       ? room.y - WALL_H - labelH - 4
       : room.y + 8;
 
     // Background pill
-    roundRect(ctx, lx, ly, labelW, labelH, 5);
-    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    roundRect(ctx, lx, ly, labelW, labelH, 6);
+    ctx.fillStyle = "rgba(0,0,0,0.8)";
     ctx.fill();
     ctx.strokeStyle = room.wallTop;
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Text
+    // Text with icon
     ctx.fillStyle = room.labelColor;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(labelText, room.x + room.w / 2, ly + labelH / 2);
+    ctx.fillText(fullText, room.x + room.w / 2, ly + labelH / 2);
   }
 
   // Restore camera transform
