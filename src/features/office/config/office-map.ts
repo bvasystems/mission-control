@@ -275,41 +275,42 @@ export interface AgentConfig {
   defaultRoom: string; spawnX: number; spawnY: number;
 }
 
+// spawnX/spawnY = position of their chair/desk (where they sit when working)
 export const AGENTS: AgentConfig[] = [
   {
     id: "joao", name: "João", role: "CEO / Operador",
     department: "diretoria",
     skinColor: "#f0c8a0", shirtColor: "#3b82f6", hairColor: "#4a3728", pantsColor: "#1e3a5f",
     hairStyle: "short",
-    defaultRoom: "diretoria", spawnX: 510, spawnY: 190,
+    defaultRoom: "diretoria", spawnX: 505, spawnY: 180,  // chair at desk 1
   },
   {
     id: "jota", name: "Jota", role: "CTO / Líder",
     department: "diretoria",
     skinColor: "#f0c8a0", shirtColor: "#8b5cf6", hairColor: "#2d1b4e", pantsColor: "#3b2066",
     hairStyle: "medium",
-    defaultRoom: "diretoria", spawnX: 680, spawnY: 190,
+    defaultRoom: "diretoria", spawnX: 675, spawnY: 180,  // chair at desk 2
   },
   {
     id: "caio", name: "Caio", role: "Desenvolvedor",
     department: "desenvolvimento",
     skinColor: "#d4a574", shirtColor: "#10b981", hairColor: "#1a1a1a", pantsColor: "#064e3b",
     hairStyle: "curly",
-    defaultRoom: "desenvolvimento", spawnX: 110, spawnY: 485,
+    defaultRoom: "desenvolvimento", spawnX: 106, spawnY: 472, // chair at desk row1-col1
   },
   {
     id: "leticia", name: "Letícia", role: "Operações / Infra",
     department: "operacoes",
     skinColor: "#f0c8a0", shirtColor: "#f59e0b", hairColor: "#8b6914", pantsColor: "#78350f",
     hairStyle: "long",
-    defaultRoom: "operacoes", spawnX: 695, spawnY: 505,
+    defaultRoom: "operacoes", spawnX: 691, spawnY: 495,  // chair at ops desk 1
   },
   {
     id: "clara", name: "Clara", role: "Desenvolvedora",
     department: "desenvolvimento",
     skinColor: "#e8b890", shirtColor: "#ec4899", hairColor: "#5c1a3a", pantsColor: "#831843",
     hairStyle: "medium",
-    defaultRoom: "desenvolvimento", spawnX: 235, spawnY: 485,
+    defaultRoom: "desenvolvimento", spawnX: 229, spawnY: 472, // chair at desk row1-col2
   },
 ];
 

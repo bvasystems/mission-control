@@ -145,12 +145,18 @@ export function OfficeCanvas() {
         hasActiveDispatch: dispatchData?.hasActive ?? false,
       });
 
-      const center = getRoomCenter(targetRoom);
-      if (center) {
-        const hash = agentCfg.id.charCodeAt(0) + agentCfg.id.charCodeAt(agentCfg.id.length - 1);
-        const offsetX = ((hash % 7) - 3) * 20;
-        const offsetY = ((hash % 5) - 2) * 12;
-        setAgentTarget(state, agentCfg.id, center.x + offsetX, center.y + offsetY);
+      // If staying in default department → go to their desk (spawnX/Y)
+      // If moving to another room → go to room center with offset
+      if (targetRoom === agentCfg.defaultRoom) {
+        setAgentTarget(state, agentCfg.id, agentCfg.spawnX, agentCfg.spawnY);
+      } else {
+        const center = getRoomCenter(targetRoom);
+        if (center) {
+          const hash = agentCfg.id.charCodeAt(0) + agentCfg.id.charCodeAt(agentCfg.id.length - 1);
+          const offsetX = ((hash % 7) - 3) * 20;
+          const offsetY = ((hash % 5) - 2) * 12;
+          setAgentTarget(state, agentCfg.id, center.x + offsetX, center.y + offsetY);
+        }
       }
     }
     state.agentActivities = activityMap;
