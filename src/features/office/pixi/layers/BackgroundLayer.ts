@@ -1,6 +1,6 @@
 // ── Background Layer — Rooms, floors, walls ──────────────────────────────────
 
-import { Container, Graphics, Sprite, Texture, Assets } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 import { ROOMS, type Room } from "../../config/office-map";
 import { CANVAS_W, CANVAS_H } from "../constants";
 

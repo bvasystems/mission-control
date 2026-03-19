@@ -1,6 +1,6 @@
 // ── Agent Sprite — Character with body parts, animations, nametag ────────────
 
-import { Container, Graphics, Text, TextStyle, Assets, Sprite, Texture } from "pixi.js";
+import { Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { AgentConfig } from "../../config/office-map";
 import type { AgentActivity } from "../../types";
 import { CHAR_SCALE, STATUS_COLORS, WALK_SPEED, WALK_FRAME_RATE } from "../constants";
@@ -28,8 +28,6 @@ export class AgentSprite {
   private activityBubble: Container;
   private proximityRing: Graphics;
   private pressELabel: Container;
-  private charSprite: Sprite | null = null;
-
   private walkCycle = 0;
   private status = "idle";
   private activity: AgentActivity | null = null;
@@ -85,20 +83,10 @@ export class AgentSprite {
     this.container.zIndex = cfg.spawnY;
   }
 
-  private async loadCharSprite(agentId: string) {
-    const palette = CHAR_PALETTES[agentId] ?? 0;
-    try {
-      const tex = await Assets.load(`/assets/office/characters/char_${palette}.png`);
-      this.charSprite = new Sprite(tex);
-      // The spritesheet is a full character image — use it as the body
-      this.charSprite.anchor.set(0.5, 0.75);
-      this.charSprite.scale.set(CHAR_SCALE);
-      this.container.addChildAt(this.charSprite, 0);
-      // Hide the fallback Graphics body
-      this.body.visible = false;
-    } catch {
-      // Keep programmatic body as fallback
-    }
+  private async loadCharSprite(_agentId: string) {
+    // Character PNGs are full spritesheets (all frames in one image).
+    // TODO: parse spritesheet into individual frames for AnimatedSprite.
+    // For now, use the programmatic body which works correctly.
   }
 
   private drawBody() {
@@ -300,15 +288,8 @@ export class AgentSprite {
     if (!this.walking) {
       const bob = Math.sin(Date.now() / 800 + this.config.spawnX) * 1.2;
       this.body.y = bob;
-      if (this.charSprite) this.charSprite.y = bob;
     } else {
       this.body.y = 0;
-      if (this.charSprite) this.charSprite.y = 0;
-    }
-
-    // Mirror sprite based on direction
-    if (this.charSprite) {
-      this.charSprite.scale.x = this.direction === "left" ? -CHAR_SCALE : CHAR_SCALE;
     }
 
     // Z-sort

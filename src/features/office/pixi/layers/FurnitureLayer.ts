@@ -1,45 +1,12 @@
 // ── Furniture Layer — Sprite-based furniture rendering ────────────────────────
 
-import { Container, Graphics, Assets, Sprite, Texture } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 import { FURNITURE, type Furniture } from "../../config/office-map";
-
-// Map our furniture types to pixel-agents asset folders
-const SPRITE_MAP: Record<string, string> = {
-  desk: "DESK", chair: "CUSHIONED_CHAIR", monitor: "PC",
-  couch: "SOFA", bookshelf: "BOOKSHELF", plant: "PLANT",
-  "plant-big": "LARGE_PLANT", "potted-tree": "LARGE_PLANT",
-  "coffee-table": "COFFEE_TABLE", "coffee-machine": "COFFEE",
-  "water-cooler": "COFFEE", whiteboard: "WHITEBOARD",
-  "trash-can": "BIN", "filing-cabinet": "DOUBLE_BOOKSHELF",
-  lamp: "PLANT_2", printer: "PC", clock: "CLOCK",
-  painting: "SMALL_PAINTING", rug: "", tv: "", aquarium: "",
-  "server-rack": "DOUBLE_BOOKSHELF",
-};
 
 export class FurnitureLayer {
   container = new Container();
-  private spriteTextures = new Map<string, Texture>();
 
   async init() {
-    // Pre-load available furniture sprites
-    const loaded = new Set<string>();
-    for (const [, assetFolder] of Object.entries(SPRITE_MAP)) {
-      if (!assetFolder || loaded.has(assetFolder)) continue;
-      loaded.add(assetFolder);
-      try {
-        const tex = await Assets.load(`/assets/office/furniture/${assetFolder}/${assetFolder}_FRONT.png`);
-        this.spriteTextures.set(assetFolder, tex);
-      } catch {
-        // Try without _FRONT suffix
-        try {
-          const tex = await Assets.load(`/assets/office/furniture/${assetFolder}/${assetFolder}.png`);
-          this.spriteTextures.set(assetFolder, tex);
-        } catch {
-          // No sprite available, will use fallback graphics
-        }
-      }
-    }
-
     // Sort furniture by Y for proper layering
     const sorted = [...FURNITURE].sort((a, b) => (a.y + a.h) - (b.y + b.h));
 
@@ -53,20 +20,8 @@ export class FurnitureLayer {
   }
 
   private createFurniture(f: Furniture): Container | null {
-    const assetFolder = SPRITE_MAP[f.type];
-
-    // Try sprite first
-    if (assetFolder && this.spriteTextures.has(assetFolder)) {
-      const tex = this.spriteTextures.get(assetFolder)!;
-      const sprite = new Sprite(tex);
-      sprite.x = f.x;
-      sprite.y = f.y;
-      sprite.width = f.w;
-      sprite.height = f.h;
-      return sprite as unknown as Container;
-    }
-
-    // Fallback: programmatic Graphics for types without sprites
+    // Use programmatic Graphics for all furniture — sprites need proper
+    // scale mapping that matches the office-map coordinate system
     return this.drawFallback(f);
   }
 
