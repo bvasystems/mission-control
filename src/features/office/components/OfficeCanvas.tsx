@@ -14,7 +14,7 @@ import {
   type AgentStatus,
   type AgentDispatchIndicator,
 } from "../engine/OfficeRenderer";
-import { getRoomCenter } from "../config/office-map";
+import { getRoomCenter, getIdleSpot } from "../config/office-map";
 import { useOfficeStore, type PanelType } from "../store";
 import { useAgents, useIncidents, useTasks } from "../hooks/useOfficeData";
 import { useAllDispatches } from "../hooks/useDispatch";
@@ -42,7 +42,7 @@ function simpleActivity(
   if (status === "degraded") return { state: "waiting", label: "Degradado", since: now };
   if (status === "down") return { state: "waiting", label: "Offline", since: now };
   if (hasTask) return { state: "coding", label: "Em tarefa", since: now };
-  if (status === "active") return { state: "done", label: "Disponivel", since: now };
+  // No tasks/dispatch → agent is on break (will be in copa/recepcao)
   return { state: "idle", label: "", since: now };
 }
 
@@ -172,13 +172,11 @@ export function OfficeCanvas() {
           if (joaoAnim) { joaoAnim.isPlayerControlled = false; joaoAnim.velX = 0; joaoAnim.velY = 0; }
         }
       } else {
-        // Other rooms (copa, etc) → room center with offset
-        const center = getRoomCenter(targetRoom);
-        if (center) {
-          const hash = agentCfg.id.charCodeAt(0) + agentCfg.id.charCodeAt(agentCfg.id.length - 1);
-          const offsetX = ((hash % 7) - 3) * 20;
-          const offsetY = ((hash % 5) - 2) * 12;
-          setAgentTarget(state, agentCfg.id, center.x + offsetX, center.y + offsetY);
+        // Other rooms (copa, recepcao) → specific idle spots
+        const agentIdx = AGENTS.indexOf(agentCfg);
+        const spot = getIdleSpot(targetRoom, agentIdx);
+        if (spot) {
+          setAgentTarget(state, agentCfg.id, spot.x, spot.y);
         }
       }
     }

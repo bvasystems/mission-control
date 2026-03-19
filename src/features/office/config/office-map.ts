@@ -314,10 +314,32 @@ export const AGENTS: AgentConfig[] = [
   },
 ];
 
+// ── Idle spots (where agents hang out when not working) ──────────────────────
+
+export const IDLE_SPOTS: Record<string, Array<{ x: number; y: number }>> = {
+  copa: [
+    { x: 1100, y: 440 },  // near couch
+    { x: 1100, y: 530 },  // near other couch
+    { x: 1150, y: 480 },  // near coffee table
+    { x: 1320, y: 420 },  // near coffee machine
+  ],
+  recepcao: [
+    { x: 160, y: 200 },   // near plant
+    { x: 200, y: 260 },   // center area
+    { x: 130, y: 140 },   // by the bookshelf
+  ],
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function getRoomCenter(roomId: string): { x: number; y: number } | null {
   const room = ROOMS.find((r) => r.id === roomId);
   if (!room) return null;
   return { x: room.x + room.w / 2, y: room.y + room.h / 2 + 20 };
+}
+
+export function getIdleSpot(roomId: string, agentIndex: number): { x: number; y: number } | null {
+  const spots = IDLE_SPOTS[roomId];
+  if (!spots || spots.length === 0) return getRoomCenter(roomId);
+  return spots[agentIndex % spots.length];
 }
