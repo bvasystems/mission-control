@@ -9,9 +9,11 @@ import {
   CANVAS_H,
   type RenderState,
   type AgentStatus,
+  type AgentDispatchIndicator,
 } from "../engine/OfficeRenderer";
 import { useOfficeStore, type PanelType } from "../store";
 import { useAgents } from "../hooks/useOfficeData";
+import { useAllDispatches } from "../hooks/useDispatch";
 
 export function OfficeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -20,12 +22,16 @@ export function OfficeCanvas() {
   const stateRef = useRef<RenderState>({
     hoveredEntity: null,
     hoveredHotspot: null,
+    selectedEntity: null,
     agentStatuses: new Map(),
+    agentDispatches: new Map(),
     time: 0,
   });
 
   const { data: agents } = useAgents();
+  const { data: dispatches } = useAllDispatches();
   const { openPanel, selectAgent, setHoveredEntity } = useOfficeStore();
+  const selectedAgentId = useOfficeStore((s) => s.selectedAgentId);
 
   // Update agent statuses when data changes
   useEffect(() => {
@@ -41,6 +47,29 @@ export function OfficeCanvas() {
     }
     stateRef.current.agentStatuses = map;
   }, [agents]);
+
+  // Sync selected agent to render state
+  useEffect(() => {
+    stateRef.current.selectedEntity = selectedAgentId;
+  }, [selectedAgentId]);
+
+  // Build dispatch indicators from dispatch history
+  useEffect(() => {
+    const map = new Map<string, AgentDispatchIndicator>();
+    if (dispatches) {
+      for (const d of dispatches) {
+        const key = d.target_agent.toLowerCase();
+        const existing = map.get(key);
+        const isActive = d.status === "queued" || d.status === "sent";
+        if (!existing) {
+          map.set(key, { hasActive: isActive, lastStatus: d.status });
+        } else if (isActive) {
+          existing.hasActive = true;
+        }
+      }
+    }
+    stateRef.current.agentDispatches = map;
+  }, [dispatches]);
 
   // ── Convert screen coords to canvas coords ─────────────────────────────────
   const toCanvasCoords = useCallback((clientX: number, clientY: number) => {

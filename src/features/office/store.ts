@@ -29,6 +29,10 @@ interface OfficeState {
   // Tooltip
   tooltip: { x: number; y: number; text: string } | null;
   setTooltip: (t: { x: number; y: number; text: string } | null) => void;
+
+  // Command input pre-fill (from quick actions)
+  commandDraft: string;
+  setCommandDraft: (text: string) => void;
 }
 
 export const useOfficeStore = create<OfficeState>((set) => ({
@@ -36,7 +40,8 @@ export const useOfficeStore = create<OfficeState>((set) => ({
   panelData: null,
   openPanel: (panel, data) =>
     set({ activePanel: panel, panelData: data ?? null }),
-  closePanel: () => set({ activePanel: null, panelData: null }),
+  closePanel: () =>
+    set({ activePanel: null, panelData: null, selectedAgentId: null, commandDraft: "" }),
 
   hoveredEntity: null,
   setHoveredEntity: (id) => set({ hoveredEntity: id }),
@@ -47,8 +52,12 @@ export const useOfficeStore = create<OfficeState>((set) => ({
       selectedAgentId: id,
       activePanel: id ? "agent-detail" : null,
       panelData: id ? { agentId: id } : null,
+      commandDraft: "",
     }),
 
   tooltip: null,
   setTooltip: (t) => set({ tooltip: t }),
+
+  commandDraft: "",
+  setCommandDraft: (text) => set({ commandDraft: text }),
 }));

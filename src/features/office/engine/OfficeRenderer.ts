@@ -20,10 +20,17 @@ export interface AgentStatus {
   errors_24h: number;
 }
 
+export interface AgentDispatchIndicator {
+  hasActive: boolean;       // has queued/sent commands
+  lastStatus: string | null; // last dispatch status
+}
+
 export interface RenderState {
   hoveredEntity: string | null;
   hoveredHotspot: string | null;
+  selectedEntity: string | null;
   agentStatuses: Map<string, AgentStatus>;
+  agentDispatches: Map<string, AgentDispatchIndicator>;
   time: number; // performance.now for animations
 }
 
@@ -130,6 +137,47 @@ function drawHotspot(
   }
 }
 
+// ── Draw desk/workspace beneath agent ─────────────────────────────────────────
+function drawDesk(ctx: CanvasRenderingContext2D, x: number, y: number, isSelected: boolean) {
+  const deskW = 56;
+  const deskH = 18;
+  const deskX = x - deskW / 2;
+  const deskY = y + 26;
+
+  roundRect(ctx, deskX, deskY, deskW, deskH, 4);
+  ctx.fillStyle = isSelected ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)";
+  ctx.fill();
+  ctx.strokeStyle = isSelected ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+}
+
+// ── Draw dispatch indicator (small badge) ─────────────────────────────────────
+function drawDispatchBadge(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, radius: number,
+  dispatch: AgentDispatchIndicator,
+  time: number
+) {
+  if (!dispatch.hasActive) return;
+
+  const bx = x - radius + 2;
+  const by = y - radius + 2;
+  const pulse = Math.sin(time / 400) * 0.3 + 0.7;
+
+  // Animated ring
+  ctx.beginPath();
+  ctx.arc(bx, by, 7, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(99,102,241,${pulse})`;
+  ctx.fill();
+
+  // Inner dot
+  ctx.beginPath();
+  ctx.arc(bx, by, 3, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+}
+
 // ── Draw agent avatar ─────────────────────────────────────────────────────────
 function drawAgent(
   ctx: CanvasRenderingContext2D,
@@ -137,14 +185,30 @@ function drawAgent(
   state: RenderState
 ) {
   const isHovered = state.hoveredEntity === agent.id;
+  const isSelected = state.selectedEntity === agent.id;
   const statusData = state.agentStatuses.get(agent.name.toLowerCase());
+  const dispatchData = state.agentDispatches.get(agent.name.toLowerCase());
   const status = statusData?.status ?? "idle";
   const statusColor = STATUS_COLORS[status] ?? STATUS_COLORS.idle;
   const glowColor = STATUS_GLOW[status] ?? STATUS_GLOW.idle;
 
-  const radius = isHovered ? 24 : 20;
+  const radius = isSelected ? 26 : isHovered ? 24 : 20;
   const x = agent.x;
   const y = agent.y;
+
+  // Desk
+  drawDesk(ctx, x, y, isSelected);
+
+  // Selected ring
+  if (isSelected) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 10, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(99,102,241,${0.4 + Math.sin(state.time / 800) * 0.2})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   // Pulse animation for active agents
   if (status === "active" || status === "degraded") {
@@ -158,51 +222,69 @@ function drawAgent(
   // Outer glow
   ctx.beginPath();
   ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
-  ctx.fillStyle = glowColor;
+  ctx.fillStyle = isSelected
+    ? "rgba(99,102,241,0.3)"
+    : glowColor;
   ctx.fill();
+
+  // Shadow for depth
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = isSelected ? 16 : 8;
+  ctx.shadowOffsetY = 2;
 
   // Main circle
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fillStyle = agent.color;
   ctx.fill();
+  ctx.restore();
 
-  // Inner gradient
-  const grad = ctx.createRadialGradient(x - 4, y - 4, 2, x, y, radius);
-  grad.addColorStop(0, "rgba(255,255,255,0.2)");
-  grad.addColorStop(1, "rgba(0,0,0,0.1)");
+  // Inner gradient (3D effect)
+  const grad = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, 1, x, y, radius);
+  grad.addColorStop(0, "rgba(255,255,255,0.25)");
+  grad.addColorStop(0.5, "rgba(255,255,255,0.05)");
+  grad.addColorStop(1, "rgba(0,0,0,0.15)");
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fillStyle = grad;
   ctx.fill();
 
   // Border
-  ctx.strokeStyle = isHovered
-    ? "rgba(255,255,255,0.8)"
-    : "rgba(255,255,255,0.15)";
-  ctx.lineWidth = isHovered ? 2 : 1;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = isSelected
+    ? "rgba(99,102,241,0.8)"
+    : isHovered
+      ? "rgba(255,255,255,0.8)"
+      : "rgba(255,255,255,0.15)";
+  ctx.lineWidth = isSelected ? 2.5 : isHovered ? 2 : 1;
   ctx.stroke();
 
   // Initials
   const initials = agent.name.charAt(0).toUpperCase();
   ctx.fillStyle = "#fff";
-  ctx.font = `bold ${isHovered ? 14 : 12}px Inter, system-ui, sans-serif`;
+  ctx.font = `bold ${radius > 22 ? 16 : isHovered ? 14 : 12}px Inter, system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(initials, x, y);
 
-  // Name label below
-  ctx.fillStyle = isHovered
-    ? "rgba(255,255,255,0.95)"
-    : "rgba(255,255,255,0.6)";
-  ctx.font = `${isHovered ? "bold " : ""}11px Inter, system-ui, sans-serif`;
+  // Name label below desk
+  ctx.fillStyle = isSelected
+    ? "rgba(255,255,255,1)"
+    : isHovered
+      ? "rgba(255,255,255,0.95)"
+      : "rgba(255,255,255,0.6)";
+  ctx.font = `${isSelected || isHovered ? "bold " : ""}11px Inter, system-ui, sans-serif`;
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(agent.name, x, y + radius + 16);
+  ctx.fillText(agent.name, x, y + radius + 34);
 
   // Role below name
   ctx.fillStyle = "rgba(255,255,255,0.3)";
   ctx.font = "9px Inter, system-ui, sans-serif";
-  ctx.fillText(agent.role, x, y + radius + 28);
+  ctx.fillText(agent.role, x, y + radius + 46);
 
-  // Status dot
+  // Status dot (top-right)
   ctx.beginPath();
   ctx.arc(x + radius - 2, y - radius + 2, 5, 0, Math.PI * 2);
   ctx.fillStyle = statusColor;
@@ -210,6 +292,11 @@ function drawAgent(
   ctx.strokeStyle = "rgba(0,0,0,0.5)";
   ctx.lineWidth = 1.5;
   ctx.stroke();
+
+  // Dispatch indicator (top-left)
+  if (dispatchData) {
+    drawDispatchBadge(ctx, x, y, radius, dispatchData, state.time);
+  }
 }
 
 // ── Draw floor connectors (decorative lines between rooms) ────────────────────

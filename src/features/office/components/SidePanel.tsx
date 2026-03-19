@@ -1,6 +1,10 @@
 "use client";
 
-import { X, ExternalLink, AlertTriangle, CheckCircle2, Clock, Bot, FolderKanban, Flame, Activity } from "lucide-react";
+import { useState } from "react";
+import {
+  X, ExternalLink, AlertTriangle, CheckCircle2, Clock, Bot,
+  FolderKanban, Flame, Activity, Send, Loader2, ChevronDown, ChevronUp,
+} from "lucide-react";
 import { useOfficeStore, type PanelType } from "../store";
 import {
   useAgents,
@@ -13,6 +17,8 @@ import {
   type Incident,
   type CronJob,
 } from "../hooks/useOfficeData";
+import { useDispatchHistory, useSendDispatch } from "../hooks/useDispatch";
+import { QUICK_ACTIONS, type AgentDispatch, type DispatchState } from "../types";
 import Link from "next/link";
 
 // ── Status badge colors ───────────────────────────────────────────────────────
@@ -39,6 +45,15 @@ const SEVERITY_COLORS: Record<string, string> = {
   low: "text-zinc-400 bg-zinc-500/10",
 };
 
+const DISPATCH_STATUS_CONFIG: Record<DispatchState, { label: string; color: string; dot: string }> = {
+  queued:       { label: "Na fila",      color: "text-zinc-400",   dot: "bg-zinc-400" },
+  sent:         { label: "Enviado",      color: "text-blue-400",   dot: "bg-blue-400" },
+  acknowledged: { label: "Recebido",    color: "text-indigo-400", dot: "bg-indigo-400" },
+  blocked:      { label: "Bloqueado",    color: "text-red-400",    dot: "bg-red-400" },
+  done:         { label: "Concluído",    color: "text-green-400",  dot: "bg-green-400" },
+  failed:       { label: "Falhou",       color: "text-red-500",    dot: "bg-red-500" },
+};
+
 // ── Panel titles & icons ──────────────────────────────────────────────────────
 const PANEL_CONFIG: Record<string, { title: string; icon: React.ReactNode; route: string }> = {
   agents: { title: "Agentes", icon: <Bot size={16} />, route: "/agents" },
@@ -47,35 +62,193 @@ const PANEL_CONFIG: Record<string, { title: string; icon: React.ReactNode; route
   incidents: { title: "Incidentes", icon: <Flame size={16} />, route: "/incidents" },
   crons: { title: "Cron Jobs", icon: <Clock size={16} />, route: "/crons" },
   stats: { title: "Dashboard", icon: <Activity size={16} />, route: "/" },
-  "agent-detail": { title: "Detalhe do Agente", icon: <Bot size={16} />, route: "/agents" },
+  "agent-detail": { title: "Controle do Agente", icon: <Bot size={16} />, route: "/agents" },
 };
 
-// ── Agent Detail Panel ────────────────────────────────────────────────────────
+// ── Agent Detail Panel (EXPANDED) ─────────────────────────────────────────────
 function AgentDetailPanel({ agentId }: { agentId: string }) {
   const { data: agents } = useAgents();
+  const { data: history, isLoading: historyLoading } = useDispatchHistory(agentId);
+  const { send, sending, error: sendError } = useSendDispatch();
+  const { commandDraft, setCommandDraft } = useOfficeStore();
+  const [showHistory, setShowHistory] = useState(true);
+  const [lastSent, setLastSent] = useState<string | null>(null);
+
   const agent = agents?.find(
     (a) => a.name.toLowerCase() === agentId.toLowerCase() || a.id === agentId
   );
 
   if (!agent) return <p className="text-zinc-500 text-sm">Agente não encontrado</p>;
 
+  const handleSend = async () => {
+    if (!commandDraft.trim()) return;
+    const result = await send({
+      targetAgent: agent.name.toLowerCase(),
+      commandText: commandDraft.trim(),
+      actionType: "free_command",
+    });
+    if (result) {
+      setLastSent(result.id);
+      setCommandDraft("");
+      setTimeout(() => setLastSent(null), 3000);
+    }
+  };
+
+  const handleQuickAction = async (actionType: string, template: string) => {
+    if (template && !template.endsWith(": ")) {
+      // Full command — send immediately
+      const result = await send({
+        targetAgent: agent.name.toLowerCase(),
+        commandText: template,
+        actionType,
+      });
+      if (result) {
+        setLastSent(result.id);
+        setTimeout(() => setLastSent(null), 3000);
+      }
+    } else {
+      // Partial template — pre-fill input
+      setCommandDraft(template);
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Agent header */}
       <div className="flex items-center gap-3">
-        <div className={`w-3 h-3 rounded-full ${STATUS_DOT[agent.status]}`} />
-        <div>
-          <p className="text-white font-medium">{agent.name}</p>
+        <div className="relative">
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
+            style={{ backgroundColor: agentColor(agent.name) }}
+          >
+            {agent.name.charAt(0)}
+          </div>
+          <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-zinc-950 ${STATUS_DOT[agent.status]}`} />
+        </div>
+        <div className="flex-1">
+          <p className="text-white font-semibold text-base">{agent.name}</p>
           <p className="text-zinc-500 text-xs">Level {agent.level} · {agent.status}</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+
+      {/* Metrics */}
+      <div className="grid grid-cols-2 gap-2">
         <Stat label="Msgs 24h" value={agent.messages_24h} />
         <Stat label="Erros 24h" value={agent.errors_24h} warn={agent.errors_24h > 0} />
         <Stat label="Reliability" value={agent.reliability_score != null ? `${agent.reliability_score}%` : "—"} />
         <Stat label="Último ping" value={timeAgo(agent.last_seen)} />
       </div>
+
+      {/* Divider */}
+      <div className="border-t border-white/[0.06]" />
+
+      {/* Quick actions */}
+      <div>
+        <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-medium">Ações rápidas</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {QUICK_ACTIONS.map((action) => (
+            <button
+              key={action.id}
+              onClick={() => handleQuickAction(action.actionType, action.commandTemplate)}
+              disabled={sending}
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/[0.12] transition-all text-left text-xs text-zinc-300 hover:text-white disabled:opacity-50"
+            >
+              <span className="text-sm">{action.icon}</span>
+              <span className="truncate">{action.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Command input */}
+      <div>
+        <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-medium">Enviar comando</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={commandDraft}
+            onChange={(e) => setCommandDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
+            placeholder={`Comando para ${agent.name}...`}
+            disabled={sending}
+            className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-50"
+          />
+          <button
+            onClick={handleSend}
+            disabled={sending || !commandDraft.trim()}
+            className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white transition-colors flex items-center gap-1.5 text-sm shrink-0"
+          >
+            {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          </button>
+        </div>
+
+        {/* Feedback */}
+        {lastSent && (
+          <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
+            <CheckCircle2 size={12} /> Comando enviado com sucesso
+          </p>
+        )}
+        {sendError && (
+          <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1">
+            <AlertTriangle size={12} /> {sendError}
+          </p>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-white/[0.06]" />
+
+      {/* Command history */}
+      <div>
+        <button
+          onClick={() => setShowHistory(!showHistory)}
+          className="flex items-center justify-between w-full text-[10px] text-zinc-500 uppercase tracking-wider font-medium mb-2"
+        >
+          <span>Histórico de comandos</span>
+          {showHistory ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+        </button>
+
+        {showHistory && (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {historyLoading && <Loading />}
+            {!historyLoading && (!history || history.length === 0) && (
+              <p className="text-xs text-zinc-600 text-center py-3">Nenhum comando enviado ainda</p>
+            )}
+            {history?.map((d: AgentDispatch) => {
+              const sc = DISPATCH_STATUS_CONFIG[d.status];
+              return (
+                <div key={d.id} className="flex items-start gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                  <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${sc.dot}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-zinc-300 break-words leading-relaxed">{d.command_text}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[10px] ${sc.color}`}>{sc.label}</span>
+                      <span className="text-[10px] text-zinc-600">{timeAgo(d.created_at)}</span>
+                      {d.action_type && (
+                        <span className="text-[10px] text-zinc-700 bg-white/[0.03] px-1 rounded">{d.action_type}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
+}
+
+// ── Agent color helper ────────────────────────────────────────────────────────
+function agentColor(name: string): string {
+  const colors: Record<string, string> = {
+    "João": "#3b82f6",
+    "Jota": "#8b5cf6",
+    "Caio": "#10b981",
+    "Letícia": "#f59e0b",
+    "Clara": "#ec4899",
+  };
+  return colors[name] ?? "#6b7280";
 }
 
 // ── Agents List Panel ─────────────────────────────────────────────────────────
@@ -131,7 +304,6 @@ function ProjectsPanel() {
               <span className="text-red-400">{p.metrics.blocked_tasks} bloqueadas</span>
             )}
           </div>
-          {/* Progress bar */}
           <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
             <div
               className="h-full rounded-full bg-blue-500/60 transition-all"
@@ -316,8 +488,8 @@ export function SidePanel() {
     <div
       className={`fixed top-0 right-0 h-full z-50 transition-all duration-300 ease-out ${
         activePanel
-          ? "w-[360px] translate-x-0"
-          : "w-[360px] translate-x-full"
+          ? "w-[380px] translate-x-0"
+          : "w-[380px] translate-x-full"
       }`}
     >
       {/* Backdrop */}
@@ -331,7 +503,7 @@ export function SidePanel() {
       {/* Panel */}
       <div className="h-full bg-zinc-950/95 backdrop-blur-xl border-l border-white/[0.08] flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] shrink-0">
           <div className="flex items-center gap-2.5">
             <span className="text-zinc-400">{config?.icon}</span>
             <h2 className="text-sm font-semibold text-white">{config?.title ?? ""}</h2>
