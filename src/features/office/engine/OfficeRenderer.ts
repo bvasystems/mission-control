@@ -37,10 +37,12 @@ export interface AgentAnimState {
 export interface RenderState {
   hoveredEntity: string | null;
   hoveredHotspot: string | null;
+  hoveredRoom: string | null;
   selectedEntity: string | null;
   agentStatuses: Map<string, AgentStatus>;
   agentDispatches: Map<string, AgentDispatchIndicator>;
   agentAnims: Map<string, AgentAnimState>;
+  alertRooms: Map<string, "warning" | "critical">;
   time: number;
   lastTime: number;
 }
@@ -1837,9 +1839,49 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
   // Corridor floor (between rooms)
   drawCorridorFloor(ctx);
 
-  // Rooms (floor + 3D walls)
+  // Rooms (floor + 3D walls + alerts)
   for (const room of ROOMS) {
     drawRoom(ctx, room);
+
+    // Room hover highlight
+    if (state.hoveredRoom === room.id) {
+      ctx.fillStyle = "rgba(255,255,255,0.03)";
+      ctx.fillRect(room.x, room.y, room.w, room.h);
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(room.x, room.y, room.w, room.h);
+    }
+
+    // Alert overlay (war room with incidents, etc.)
+    const alert = state.alertRooms.get(room.id);
+    if (alert) {
+      const pulse = Math.sin(state.time / 400) * 0.15 + 0.15;
+      const color = alert === "critical" ? `rgba(239,68,68,${pulse})` : `rgba(245,158,11,${pulse})`;
+      ctx.fillStyle = color;
+      ctx.fillRect(room.x, room.y, room.w, room.h);
+
+      // Alert border
+      const borderPulse = Math.sin(state.time / 300) * 0.3 + 0.5;
+      ctx.strokeStyle = alert === "critical"
+        ? `rgba(239,68,68,${borderPulse})`
+        : `rgba(245,158,11,${borderPulse})`;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(room.x + 1, room.y + 1, room.w - 2, room.h - 2);
+
+      // Alert badge
+      const badgeText = alert === "critical" ? "CRITICAL" : "ALERT";
+      ctx.font = "bold 8px 'Courier New', monospace";
+      const tw = ctx.measureText(badgeText).width + 8;
+      const bx = room.x + room.w - tw - 6;
+      const by = room.y + 6;
+      roundRect(ctx, bx, by, tw, 14, 3);
+      ctx.fillStyle = alert === "critical" ? "rgba(239,68,68,0.9)" : "rgba(245,158,11,0.9)";
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(badgeText, bx + tw / 2, by + 7);
+    }
   }
 
   // Furniture (sorted by Y for layering)
@@ -1891,6 +1933,16 @@ export function hitTestHotspot(mx: number, my: number): Hotspot | null {
     if (mx >= hs.x - pad && mx <= hs.x + hs.w + pad &&
         my >= hs.y - pad && my <= hs.y + hs.h + pad) {
       return hs;
+    }
+  }
+  return null;
+}
+
+export function hitTestRoom(mx: number, my: number): Room | null {
+  for (const room of ROOMS) {
+    if (mx >= room.x && mx <= room.x + room.w &&
+        my >= room.y && my <= room.y + room.h) {
+      return room;
     }
   }
   return null;
