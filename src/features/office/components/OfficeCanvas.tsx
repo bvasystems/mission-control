@@ -126,9 +126,10 @@ export function OfficeCanvas() {
 
     // 4. Activity + Room assignment per agent
     const activityMap = new Map<string, AgentActivity>();
+    // Seats at meeting table chairs — top row (y=105) and bottom row (y=245)
     const meetingSeats = [
-      { x: 990, y: 120 }, { x: 1050, y: 120 }, { x: 1110, y: 120 }, { x: 1170, y: 120 },
-      { x: 990, y: 225 }, { x: 1050, y: 225 }, { x: 1110, y: 225 }, { x: 1170, y: 225 },
+      { x: 990, y: 105 }, { x: 1050, y: 105 }, { x: 1110, y: 105 }, { x: 1170, y: 105 },
+      { x: 990, y: 245 }, { x: 1050, y: 245 }, { x: 1110, y: 245 }, { x: 1170, y: 245 },
     ];
     let seatCounter = 0;
 

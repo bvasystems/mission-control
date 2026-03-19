@@ -2038,7 +2038,7 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
       continue;
     }
 
-    // AI-controlled agents (target-based movement with collision)
+    // AI-controlled agents — move freely (no collision, NPCs don't need pathfinding)
     const dx = anim.targetX - anim.x;
     const dy = anim.targetY - anim.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -2046,33 +2046,8 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
     if (dist > 2) {
       anim.walking = true;
       const step = Math.min(WALK_SPEED * deltaSec, dist);
-      const moveX = (dx / dist) * step;
-      const moveY = (dy / dist) * step;
-      const newX = anim.x + moveX;
-      const newY = anim.y + moveY;
-
-      // Check walls + furniture for AI agents too
-      const canMove = isWalkable(newX, newY) && !collidesWithFurniture(newX, newY);
-      if (canMove) {
-        anim.x = newX;
-        anim.y = newY;
-      } else {
-        // Try axis-separated movement (slide along obstacles)
-        const canMoveX = isWalkable(anim.x + moveX, anim.y) && !collidesWithFurniture(anim.x + moveX, anim.y);
-        const canMoveY = isWalkable(anim.x, anim.y + moveY) && !collidesWithFurniture(anim.x, anim.y + moveY);
-        if (canMoveX) {
-          anim.x += moveX;
-        } else if (canMoveY) {
-          anim.y += moveY;
-        }
-        // If fully blocked, just teleport to target (avoid infinite stuck)
-        if (!canMoveX && !canMoveY) {
-          anim.x = anim.targetX;
-          anim.y = anim.targetY;
-          anim.walking = false;
-          continue;
-        }
-      }
+      anim.x += (dx / dist) * step;
+      anim.y += (dy / dist) * step;
 
       if (Math.abs(dx) > Math.abs(dy)) {
         anim.direction = dx > 0 ? "right" : "left";
