@@ -80,6 +80,7 @@ export interface RenderState {
   agentDispatches: Map<string, AgentDispatchIndicator>;
   agentAnims: Map<string, AgentAnimState>;
   agentActivities: Map<string, AgentActivity>;
+  agentFlash: Map<string, number>;   // agentId → flash end timestamp
   alertRooms: Map<string, string>;
   particles: Particle[];
   cameraX: number;
@@ -1808,6 +1809,23 @@ function drawCharacter(
     ctx.stroke();
   }
 
+  // ── Response flash (agent just responded to a message) ─────────────────────
+  const flashEnd = state.agentFlash?.get(agent.id);
+  if (flashEnd && state.time < flashEnd) {
+    const flashProgress = (flashEnd - state.time) / 3000; // 3s duration
+    const pulse = Math.sin(state.time / 150) * 0.5 + 0.5; // fast pulse
+    // Glow ring
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 22, 26, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(34,197,94,${pulse * flashProgress * 0.8})`;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    // Message icon above head
+    ctx.font = "12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("💬", 0, -CHAR_H / 2 - HEAD_R * 2 - 8);
+  }
+
   ctx.restore();
 
   // ── Name tag (ALWAYS visible, below character) ──────────────────────────────
@@ -2390,7 +2408,13 @@ export function renderOffice(ctx: CanvasRenderingContext2D, state: RenderState) 
   }
 
   // Furniture (sorted by Y for layering)
-  const sortedFurniture = [...FURNITURE].sort((a, b) => (a.y + a.h) - (b.y + b.h));
+  // Surface items (monitors, printers) get z-boost so they render ON TOP of desks
+  const SURFACE_TYPES = new Set(["monitor", "printer"]);
+  const sortedFurniture = [...FURNITURE].sort((a, b) => {
+    const zA = SURFACE_TYPES.has(a.type) ? (a.y + a.h + 50) : (a.y + a.h);
+    const zB = SURFACE_TYPES.has(b.type) ? (b.y + b.h + 50) : (b.y + b.h);
+    return zA - zB;
+  });
   for (const f of sortedFurniture) {
     drawFurniture(ctx, f);
   }

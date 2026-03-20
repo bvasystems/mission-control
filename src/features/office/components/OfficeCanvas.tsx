@@ -51,6 +51,8 @@ export function OfficeCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
   const keysRef = useRef<Set<string>>(new Set());
+  const seenResponsesRef = useRef<Set<string>>(new Set());
+  const lastNearbyRef = useRef<string | null>(null);
   const stateRef = useRef<RenderState>({
     hoveredEntity: null,
     hoveredHotspot: null,
@@ -62,6 +64,7 @@ export function OfficeCanvas() {
     agentDispatches: new Map(),
     agentAnims: new Map(),
     agentActivities: new Map(),
+    agentFlash: new Map(),
     alertRooms: new Map(),
     particles: [],
     cameraX: 0,
@@ -111,6 +114,25 @@ export function OfficeCanvas() {
       }
     }
     state.agentDispatches = dispatchMap;
+
+    // 2b. Detect new responses → trigger flash on agent
+    if (dispatches) {
+      for (const d of dispatches) {
+        if (d.status === "done" && d.response && !seenResponsesRef.current.has(d.id)) {
+          seenResponsesRef.current.add(d.id);
+          // Flash the agent for 3 seconds
+          const agentId = AGENTS.find((a) => a.name.toLowerCase() === d.target_agent.toLowerCase())?.id;
+          if (agentId) {
+            state.agentFlash.set(agentId, performance.now() + 3000);
+          }
+        }
+      }
+      // Keep seen set from growing indefinitely
+      if (seenResponsesRef.current.size > 200) {
+        const arr = [...seenResponsesRef.current];
+        seenResponsesRef.current = new Set(arr.slice(-100));
+      }
+    }
 
     // 3. Incident alerts
     const alertMap = new Map<string, string>();
@@ -293,11 +315,21 @@ export function OfficeCanvas() {
     function frame(time: number) {
       stateRef.current.time = time;
       renderOffice(ctx!, stateRef.current);
+
+      // ── Proximity auto-chat: open agent panel when João walks near ──
+      const nearby = stateRef.current.nearbyAgent;
+      if (nearby && nearby !== lastNearbyRef.current) {
+        lastNearbyRef.current = nearby;
+        selectAgent(nearby);
+      } else if (!nearby && lastNearbyRef.current) {
+        lastNearbyRef.current = null;
+      }
+
       rafRef.current = requestAnimationFrame(frame);
     }
     rafRef.current = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(rafRef.current);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Resize ──────────────────────────────────────────────────────────────────
   useEffect(() => {
