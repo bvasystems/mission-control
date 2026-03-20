@@ -457,10 +457,22 @@ function MeetingPanel() {
     if (!commandDraft.trim() || meetingAgents.length === 0) return;
     const text = commandDraft.trim();
     setCommandDraft("");
-    // Dedupe jota/faisca — only send to "faisca", skip "jota"
-    const targets = meetingAgents
+
+    // Dedupe jota/faisca — base target list
+    const allTargets = meetingAgents
       .filter((id) => id !== "joao" && normalizeName(id) !== "jota")
       .map((id) => normalizeName(id) === "faisca" ? "faisca" : id);
+
+    // Detect @mention — if present, only that agent responds
+    const mentionMatch = text.match(/@(\w+)/i);
+    let targets = allTargets;
+    if (mentionMatch) {
+      const mentioned = normalizeName(mentionMatch[1]);
+      const found = allTargets.find((id) => normalizeName(id) === mentioned
+        || normalizeName(agentName(id)) === mentioned);
+      if (found) targets = [found];
+    }
+
     for (const aid of targets) {
       await send({ targetAgent: aid, commandText: text, actionType: "meeting_command" });
     }
@@ -556,7 +568,9 @@ function MeetingPanel() {
               <div className="max-w-[80%] bg-indigo-600/15 border border-indigo-500/12 rounded-2xl rounded-br-md px-3.5 py-2">
                 <p className="text-xs text-indigo-200 break-words leading-relaxed">{group.text}</p>
                 <span className="text-[9px] text-indigo-400/40 mt-1 block text-right">
-                  para todos · {timeAgo(group.time)}
+                  {group.dispatches.length === 1
+                    ? `para ${agentName(group.dispatches[0].target_agent)}`
+                    : "para todos"} · {timeAgo(group.time)}
                 </span>
               </div>
             </div>
@@ -589,7 +603,7 @@ function MeetingPanel() {
             type="text" value={commandDraft}
             onChange={(e) => setCommandDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleGroupSend(); }}
-            placeholder="Mensagem para a reuniao..."
+            placeholder="Mensagem para todos ou @nome..."
             disabled={sending}
             className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/10 disabled:opacity-40 transition-all"
           />
