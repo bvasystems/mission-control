@@ -2371,21 +2371,21 @@ function isWalkable(x: number, y: number): boolean {
     }
   }
 
-  // Corridor zones — only the actual corridors between rooms, not everywhere
-  // Horizontal corridor between row 1 and row 2 (y ~310-360)
-  if (x >= 30 && x <= CANVAS_W - 30 && y >= 300 && y <= 370) {
+  // Corridor zones — wide corridors for easy navigation
+  // Horizontal corridor between row 1 and row 2
+  if (x >= 10 && x <= CANVAS_W - 10 && y >= 280 && y <= 400) {
     return true;
   }
-  // Horizontal corridor between row 2 and row 3 (y ~620-660)
-  if (x >= 30 && x <= CANVAS_W - 30 && y >= 610 && y <= 670) {
+  // Horizontal corridor between row 2 and row 3
+  if (x >= 10 && x <= CANVAS_W - 10 && y >= 590 && y <= 710) {
     return true;
   }
-  // Vertical corridor left side (x ~30-40)
-  if (x >= 20 && x <= 50 && y >= 30 && y <= CANVAS_H - 20) {
+  // Vertical corridor left side (wide)
+  if (x >= 5 && x <= 80 && y >= 10 && y <= CANVAS_H - 10) {
     return true;
   }
-  // Vertical corridor right side (x ~1360-1400)
-  if (x >= CANVAS_W - 50 && x <= CANVAS_W - 20 && y >= 30 && y <= CANVAS_H - 20) {
+  // Vertical corridor right side (wide)
+  if (x >= CANVAS_W - 80 && x <= CANVAS_W - 5 && y >= 10 && y <= CANVAS_H - 10) {
     return true;
   }
 
@@ -2393,7 +2393,7 @@ function isWalkable(x: number, y: number): boolean {
   for (const room of ROOMS) {
     for (const door of room.doors) {
       let dx1: number, dy1: number, dx2: number, dy2: number;
-      const DOOR_PAD = 20; // extra space around door for smooth transit
+      const DOOR_PAD = 35; // extra space around door for smooth transit
 
       if (door.side === "top") {
         dx1 = room.x + door.offset - 5;
