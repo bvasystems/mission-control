@@ -416,11 +416,14 @@ function MeetingPanel() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const agentKey = (a: Agent) => a.id?.toString() ?? a.name.toLowerCase();
-  const inMeeting = agents?.filter((a) => meetingAgents.includes(agentKey(a))) ?? [];
-  const available = agents?.filter((a) => !meetingAgents.includes(agentKey(a))) ?? [];
+  // Filter out "Jota" — it's the same agent as "Faísca" (alias on Bridge API)
+  const isJotaDupe = (a: Agent) => normalizeName(a.name) === "jota" || normalizeName(a.id) === "jota";
+  const filteredAgents = agents?.filter((a) => !isJotaDupe(a)) ?? [];
+  const inMeeting = filteredAgents.filter((a) => meetingAgents.includes(agentKey(a)));
+  const available = filteredAgents.filter((a) => !meetingAgents.includes(agentKey(a)));
 
   const meetingFeed = (recentDispatches?.filter(
-    (d) => d.action_type === "meeting_command"
+    (d) => d.action_type === "meeting_command" && normalizeName(d.target_agent) !== "jota"
   ) ?? []).slice(0, 60);
 
   // Group dispatches with same command_text sent within 5s into a single user bubble
@@ -441,7 +444,10 @@ function MeetingPanel() {
     return groups;
   }, [meetingFeed]);
 
-  const agentName = (id: string) => agents?.find((a) => agentKey(a) === id)?.name ?? id;
+  const agentName = (id: string) => {
+    if (["jota", "faisca"].includes(normalizeName(id))) return "Faísca";
+    return filteredAgents.find((a) => agentKey(a) === id)?.name ?? id;
+  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -451,7 +457,10 @@ function MeetingPanel() {
     if (!commandDraft.trim() || meetingAgents.length === 0) return;
     const text = commandDraft.trim();
     setCommandDraft("");
-    const targets = meetingAgents.filter((id) => id !== "joao");
+    // Dedupe jota/faisca — only send to "faisca", skip "jota"
+    const targets = meetingAgents
+      .filter((id) => id !== "joao" && normalizeName(id) !== "jota")
+      .map((id) => normalizeName(id) === "faisca" ? "faisca" : id);
     for (const aid of targets) {
       await send({ targetAgent: aid, commandText: text, actionType: "meeting_command" });
     }
@@ -471,7 +480,7 @@ function MeetingPanel() {
 
         <button
           onClick={() => {
-            const allIds = agents?.map((a) => agentKey(a)) ?? [];
+            const allIds = filteredAgents.map((a) => agentKey(a));
             if (!allIds.includes("joao")) allIds.push("joao");
             useOfficeStore.getState().callToMeeting(allIds);
           }}
