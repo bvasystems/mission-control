@@ -7,6 +7,28 @@ import {
   type Room, type Hotspot, type Furniture, type AgentConfig, type FloorType,
 } from "../config/office-map";
 import type { AgentActivity } from "../types";
+import {
+  type CharFrames, type CharAction,
+  getCharFrames, getCharacterFrame, preloadAllCharacters,
+  CHAR_FRAME_W, CHAR_FRAME_H,
+} from "./characterSprites";
+
+// ── Character sprite cache (per agent) ───────────────────────────────────────
+const agentSpriteFrames = new Map<string, CharFrames>();
+const AGENT_PALETTES: Record<string, number> = {
+  joao: 0, jota: 1, caio: 2, leticia: 3, clara: 4,
+};
+
+// Pre-load character sprites on module load
+if (typeof window !== "undefined") {
+  preloadAllCharacters();
+  // Cache per agent
+  for (const [agentId, palette] of Object.entries(AGENT_PALETTES)) {
+    getCharFrames(palette).then((frames) => {
+      if (frames) agentSpriteFrames.set(agentId, frames);
+    });
+  }
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1507,6 +1529,68 @@ function drawCharacter(
   ctx.translate(x, y + bob);
   ctx.scale(scale, scale);
 
+  // ── Try sprite-based rendering first ────────────────────────────────────────
+  const spriteFrames = agentSpriteFrames.get(agent.id);
+  if (spriteFrames) {
+    // Determine action from activity
+    const activity = state.agentActivities.get(agent.id);
+    const actState = activity?.state ?? "idle";
+    let action: CharAction = "idle";
+    if (anim.walking) action = "walk";
+    else if (actState === "coding") action = "type";
+    else if (actState === "reading") action = "read";
+    else if (actState === "thinking") action = "type";
+
+    const frame = getCharacterFrame(spriteFrames, action, dir, anim.walkCycle, state.time);
+    if (frame) {
+      // Ground shadow
+      ctx.beginPath();
+      ctx.ellipse(0, CHAR_H / 2 + 4, 14, 5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fill();
+
+      // Draw sprite centered, scaled up 2x for visibility
+      const drawScale = 2;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(
+        frame,
+        -CHAR_FRAME_W * drawScale / 2,
+        -CHAR_FRAME_H * drawScale / 2 + 4,
+        CHAR_FRAME_W * drawScale,
+        CHAR_FRAME_H * drawScale
+      );
+      ctx.imageSmoothingEnabled = true;
+
+      // Selection indicator
+      if (isSelected) {
+        const selPulse = Math.sin(state.time / 500) * 0.15 + 0.85;
+        ctx.beginPath();
+        ctx.ellipse(0, CHAR_H / 2 + 4, 20, 8, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(99,102,241,${selPulse})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (isHovered && !isSelected) {
+        ctx.beginPath();
+        ctx.ellipse(0, CHAR_H / 2 + 4, 18, 7, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255,255,255,0.4)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      // Skip to nametag (same code path as programmatic)
+      // Jump past the programmatic body by going to nametag section
+      drawCharacterOverlays(ctx, agent, anim, state, x, y, bob, dir, status, isHovered, isSelected);
+      return;
+    }
+  }
+
+  // ── Fallback: Programmatic body (when sprites not loaded) ──────────────────
+
   // ── Ground shadow ───────────────────────────────────────────────────────────
   ctx.beginPath();
   ctx.ellipse(0, CHAR_H / 2 + 4, 14, 5, 0, 0, Math.PI * 2);
@@ -1893,6 +1977,67 @@ function drawCharacter(
     ctx.fillStyle = "#fff";
     ctx.fillText("PRESS E", x, tipY);
   }
+}
+
+// ── Character Overlays (shared between sprite and programmatic paths) ────────
+
+function drawCharacterOverlays(
+  ctx: CanvasRenderingContext2D,
+  agent: AgentConfig,
+  anim: AgentAnimState,
+  state: RenderState,
+  x: number, y: number, bob: number,
+  dir: string, status: string,
+  isHovered: boolean, isSelected: boolean
+) {
+  // Name tag
+  const tagY = y + bob + CHAR_H / 2 + 14;
+  const nameStr = agent.name;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 9px 'Inter', system-ui, sans-serif";
+  const nameW = ctx.measureText(nameStr).width + 14;
+  const tagH = isHovered || isSelected ? 26 : 16;
+  roundRect(ctx, x - nameW / 2, tagY - 8, nameW, tagH, 5);
+  ctx.fillStyle = isSelected
+    ? "rgba(99,102,241,0.9)"
+    : isHovered ? "rgba(0,0,0,0.88)" : "rgba(0,0,0,0.55)";
+  ctx.fill();
+  if (isSelected || isHovered) {
+    ctx.strokeStyle = isSelected ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#fff";
+  ctx.fillText(nameStr, x, tagY);
+  if (isHovered || isSelected) {
+    ctx.font = "7px 'Inter', system-ui, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillText(agent.role, x, tagY + 11);
+  }
+
+  // Status dot
+  const statusColor = STATUS_COLORS[status] ?? STATUS_COLORS.idle;
+  const dotX = x + ctx.measureText(nameStr).width / 2 + 11;
+  const dotY = tagY;
+  ctx.beginPath();
+  ctx.arc(dotX, dotY, 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = statusColor;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.5)";
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+  if (status === "active") {
+    const pulse = Math.sin(state.time / 500) * 0.4 + 0.6;
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 6, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(34,197,94,${pulse * 0.5})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Activity bubble + accessories + proximity are handled in the original drawCharacter tail
+  // (they reference local vars from the closure — kept inline in drawCharacter for now)
 }
 
 // ── Movement system ───────────────────────────────────────────────────────────
