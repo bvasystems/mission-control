@@ -65,6 +65,7 @@ export function OfficeCanvas() {
     agentAnims: new Map(),
     agentActivities: new Map(),
     agentFlash: new Map(),
+    agentUnread: new Map(),
     alertRooms: new Map(),
     particles: [],
     cameraX: 0,
@@ -115,19 +116,20 @@ export function OfficeCanvas() {
     }
     state.agentDispatches = dispatchMap;
 
-    // 2b. Detect new responses → trigger flash on agent
+    // 2b. Detect new responses → trigger flash + unread badge on agent
     if (dispatches) {
       for (const d of dispatches) {
         if (d.status === "done" && d.response && !seenResponsesRef.current.has(d.id)) {
           seenResponsesRef.current.add(d.id);
-          // Flash the agent for 3 seconds
           const agentId = AGENTS.find((a) => a.name.toLowerCase() === d.target_agent.toLowerCase())?.id;
           if (agentId) {
+            // Flash for 3 seconds
             state.agentFlash.set(agentId, performance.now() + 3000);
+            // Set unread with preview text (persists until chat opened)
+            state.agentUnread.set(agentId, d.response);
           }
         }
       }
-      // Keep seen set from growing indefinitely
       if (seenResponsesRef.current.size > 200) {
         const arr = [...seenResponsesRef.current];
         seenResponsesRef.current = new Set(arr.slice(-100));
@@ -235,6 +237,7 @@ export function OfficeCanvas() {
         const s = stateRef.current;
         if (s.nearbyAgent) {
           selectAgent(s.nearbyAgent);
+          s.agentUnread.delete(s.nearbyAgent);
           return;
         }
         if (s.nearbyHotspot) {
@@ -298,7 +301,11 @@ export function OfficeCanvas() {
     const { x, y } = toCanvas(e.clientX, e.clientY);
     const s = stateRef.current;
     const agent = hitTestAgent(x, y, s);
-    if (agent) { selectAgent(agent.id); return; }
+    if (agent) {
+      selectAgent(agent.id);
+      stateRef.current.agentUnread.delete(agent.id);
+      return;
+    }
     const hotspot = hitTestHotspot(x, y, s);
     if (hotspot) { openPanel(hotspot.actionTarget as PanelType); return; }
     const room = hitTestRoom(x, y, s);
@@ -320,6 +327,8 @@ export function OfficeCanvas() {
       if (nearby && nearby !== lastNearbyRef.current) {
         lastNearbyRef.current = nearby;
         selectAgent(nearby);
+        // Clear unread when opening chat via proximity
+        stateRef.current.agentUnread.delete(nearby);
       } else if (!nearby && lastNearbyRef.current) {
         lastNearbyRef.current = null;
         closePanel();

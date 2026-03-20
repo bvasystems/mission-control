@@ -85,6 +85,7 @@ export interface RenderState {
   agentAnims: Map<string, AgentAnimState>;
   agentActivities: Map<string, AgentActivity>;
   agentFlash: Map<string, number>;   // agentId → flash end timestamp
+  agentUnread: Map<string, string>;  // agentId → preview text (persists until viewed)
   alertRooms: Map<string, string>;
   particles: Particle[];
   cameraX: number;
@@ -1849,25 +1850,79 @@ function drawCharacter(
     ctx.stroke();
   }
 
-  // ── Response flash (agent just responded to a message) ─────────────────────
+  // ── Response flash (agent just responded) ───────────────────────────────────
   const flashEnd = state.agentFlash?.get(agent.id);
-  if (flashEnd && state.time < flashEnd) {
-    const flashProgress = (flashEnd - state.time) / 3000; // 3s duration
-    const pulse = Math.sin(state.time / 150) * 0.5 + 0.5; // fast pulse
+  const isFlashing = flashEnd && state.time < flashEnd;
+  if (isFlashing) {
+    const flashProgress = (flashEnd - state.time) / 3000;
+    const pulse = Math.sin(state.time / 150) * 0.5 + 0.5;
     // Glow ring
     ctx.beginPath();
     ctx.ellipse(0, 0, 22, 26, 0, 0, Math.PI * 2);
     ctx.strokeStyle = `rgba(34,197,94,${pulse * flashProgress * 0.8})`;
     ctx.lineWidth = 3;
     ctx.stroke();
-    // Message icon above head
-    ctx.font = "12px sans-serif";
+  }
+
+  // ── Response preview bubble (shows message text) ──────────────────────────
+  const unreadText = state.agentUnread?.get(agent.id);
+  if (unreadText) {
+    const bubbleX = 0;
+    const bubbleY = -CHAR_H / 2 - HEAD_R * 2 - 28;
+    const floatY = Math.sin(state.time / 600) * 2;
+
+    // Truncate preview
+    ctx.font = "8px 'Inter', system-ui, sans-serif";
+    let preview = unreadText;
+    if (preview.length > 40) preview = preview.slice(0, 37) + "...";
+    const textW = ctx.measureText(preview).width;
+    const bw = Math.min(Math.max(textW + 16, 50), 140);
+    const bh = 22;
+
+    // Bubble background
+    ctx.save();
+    ctx.shadowColor = "rgba(34,197,94,0.3)";
+    ctx.shadowBlur = 8;
+    roundRect(ctx, bubbleX - bw / 2, bubbleY + floatY - bh / 2, bw, bh, 6);
+    ctx.fillStyle = "rgba(34,197,94,0.9)";
+    ctx.fill();
+    ctx.restore();
+
+    // Bubble tail
+    ctx.beginPath();
+    ctx.moveTo(bubbleX - 4, bubbleY + floatY + bh / 2 - 2);
+    ctx.lineTo(bubbleX, bubbleY + floatY + bh / 2 + 5);
+    ctx.lineTo(bubbleX + 4, bubbleY + floatY + bh / 2 - 2);
+    ctx.fillStyle = "rgba(34,197,94,0.9)";
+    ctx.fill();
+
+    // Text
     ctx.textAlign = "center";
-    ctx.fillText("💬", 0, -CHAR_H / 2 - HEAD_R * 2 - 8);
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(preview, bubbleX, bubbleY + floatY);
   }
 
   ctx.globalAlpha = 1;
   ctx.restore();
+
+  // ── Unread badge (persistent dot near nametag — visible from far) ─────────
+  if (unreadText && !isFlashing) {
+    const badgePulse = Math.sin(state.time / 800) * 0.3 + 0.7;
+    ctx.beginPath();
+    ctx.arc(x + 20, y + bob - CHAR_H / 2 - HEAD_R, 5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(34,197,94,${badgePulse})`;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Number "!" inside
+    ctx.font = "bold 7px 'Inter', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#fff";
+    ctx.fillText("!", x + 20, y + bob - CHAR_H / 2 - HEAD_R);
+  }
 
   // ── Name tag (ALWAYS visible, below character) ──────────────────────────────
   const tagY = y + bob + CHAR_H / 2 + 14;
