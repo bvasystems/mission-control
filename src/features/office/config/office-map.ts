@@ -396,7 +396,7 @@ export const AGENTS: AgentConfig[] = [
     id: "faisca", name: "Faísca", role: "CTO / Líder",
     department: "diretoria", gender: "male",
     skinColor: "#f0c8a0", shirtColor: "#8b5cf6", hairColor: "#2d1b4e", pantsColor: "#3b2066",
-    hairStyle: "medium",
+    hairStyle: "short",
     defaultRoom: "diretoria", spawnX: 675, spawnY: 180,
   },
   {
