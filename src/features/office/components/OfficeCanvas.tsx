@@ -116,37 +116,7 @@ export function OfficeCanvas() {
     }
     state.agentDispatches = dispatchMap;
 
-    // 2b. Detect new responses → trigger flash + unread badge on agent
-    if (dispatches) {
-      for (const d of dispatches) {
-        // Only care about completed dispatches with a response
-        if (d.status !== "done" || !d.response) continue;
-
-        const responseKey = `${d.id}:resp`;
-        if (seenResponsesRef.current.has(responseKey)) continue;
-        seenResponsesRef.current.add(responseKey);
-
-        // Skip old dispatches on initial page load (> 5 min)
-        const ts = d.responded_at ?? d.updated_at ?? d.created_at;
-        if (ts) {
-          const age = Date.now() - new Date(ts).getTime();
-          if (age > 300_000) continue;
-        }
-
-        const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const agentId = AGENTS.find((a) => normalize(a.name) === normalize(d.target_agent))?.id;
-        if (agentId) {
-          console.log("[office] Agent responded:", agentId, d.response.slice(0, 50));
-          state.agentFlash.set(agentId, performance.now() + 4000);
-          state.agentUnread.set(agentId, d.response);
-        }
-      }
-      // Cleanup
-      if (seenResponsesRef.current.size > 500) {
-        const arr = [...seenResponsesRef.current];
-        seenResponsesRef.current = new Set(arr.slice(-200));
-      }
-    }
+    // 2b. Response detection moved to separate effect for reliability
 
     // 3. Incident alerts
     const alertMap = new Map<string, string>();
@@ -232,6 +202,40 @@ export function OfficeCanvas() {
 
     state.agentActivities = activityMap;
   }, [agents, dispatches, incidents, tasks, meetingAgents]);
+
+  // ── Detect new agent responses → flash + unread badge ──────────────────────
+  useEffect(() => {
+    if (!dispatches) return;
+    const state = stateRef.current;
+    const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    for (const d of dispatches) {
+      if (d.status !== "done" || !d.response) continue;
+
+      const key = `${d.id}:resp`;
+      if (seenResponsesRef.current.has(key)) continue;
+      seenResponsesRef.current.add(key);
+
+      // Skip dispatches older than 5 min (page load)
+      const ts = d.responded_at ?? d.updated_at ?? d.created_at;
+      if (ts) {
+        const age = Date.now() - new Date(ts).getTime();
+        if (age > 300_000) continue;
+      }
+
+      const agentCfg = AGENTS.find((a) => normalize(a.name) === normalize(d.target_agent) || a.id === normalize(d.target_agent));
+      if (agentCfg) {
+        console.log("[office] New response from", agentCfg.id, ":", d.response.slice(0, 60));
+        state.agentFlash.set(agentCfg.id, performance.now() + 5000);
+        state.agentUnread.set(agentCfg.id, d.response);
+      }
+    }
+
+    // Cleanup
+    if (seenResponsesRef.current.size > 500) {
+      seenResponsesRef.current = new Set([...seenResponsesRef.current].slice(-200));
+    }
+  }, [dispatches]);
 
   // ── Keyboard input ──────────────────────────────────────────────────────────
   useEffect(() => {
