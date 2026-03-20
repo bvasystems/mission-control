@@ -308,22 +308,53 @@ export const FURNITURE: Furniture[] = [
   { type: "trash-can",     x: 50,  y: 840, w: 14,  h: 16 },
 
   // ═══════════════════ Jardim (580,660 → 1360,860) ══════════════════════════
-  { type: "potted-tree",   x: 610, y: 690, w: 34,  h: 44 },
-  { type: "potted-tree",   x: 730, y: 680, w: 30,  h: 40 },
-  { type: "potted-tree",   x: 1000, y: 685, w: 32, h: 42 },
-  { type: "potted-tree",   x: 1280, y: 690, w: 34, h: 44 },
-  { type: "plant-big",     x: 660, y: 820, w: 26,  h: 34 },
-  { type: "plant-big",     x: 900, y: 830, w: 28,  h: 34 },
-  { type: "plant-big",     x: 1180, y: 820, w: 26, h: 34 },
-  { type: "plant",         x: 820, y: 700, w: 18,  h: 20 },
-  { type: "plant",         x: 1100, y: 710, w: 18, h: 20 },
-  { type: "couch",         x: 780, y: 750, w: 100, h: 38, color: "#4a6a3a" },
-  { type: "couch",         x: 1050, y: 750, w: 100, h: 38, color: "#4a6a3a" },
-  { type: "coffee-table",  x: 820, y: 800, w: 60,  h: 24 },
-  { type: "coffee-table",  x: 1090, y: 800, w: 60, h: 24 },
-  { type: "lamp",          x: 750, y: 770, w: 12,  h: 22 },
-  { type: "lamp",          x: 1200, y: 770, w: 12, h: 22 },
-  { type: "aquarium",      x: 1260, y: 750, w: 60, h: 32 },
+  // Pathways (rugs used as stone paths)
+  { type: "rug",           x: 680, y: 730, w: 560, h: 20, color: "#3a3a2a" },
+  { type: "rug",           x: 850, y: 700, w: 20,  h: 60, color: "#3a3a2a" },
+  { type: "rug",           x: 1080, y: 700, w: 20, h: 60, color: "#3a3a2a" },
+
+  // Trees — varied sizes, spread out
+  { type: "potted-tree",   x: 610, y: 685, w: 36,  h: 48 },
+  { type: "potted-tree",   x: 740, y: 675, w: 32,  h: 44 },
+  { type: "potted-tree",   x: 980, y: 680, w: 34,  h: 46 },
+  { type: "potted-tree",   x: 1200, y: 675, w: 30, h: 42 },
+  { type: "potted-tree",   x: 1310, y: 685, w: 36, h: 48 },
+
+  // Garden beds (small plants in clusters)
+  { type: "plant",         x: 660, y: 710, w: 16,  h: 20 },
+  { type: "plant",         x: 680, y: 715, w: 14,  h: 18 },
+  { type: "plant",         x: 700, y: 708, w: 16,  h: 20 },
+  { type: "plant",         x: 1120, y: 710, w: 16, h: 20 },
+  { type: "plant",         x: 1140, y: 715, w: 14, h: 18 },
+  { type: "plant",         x: 1160, y: 708, w: 16, h: 20 },
+  { type: "plant-big",     x: 900, y: 700, w: 24,  h: 30 },
+
+  // Seating area 1 — wooden benches with table
+  { type: "couch",         x: 780, y: 755, w: 90, h: 34, color: "#5a4a2a" },
+  { type: "coffee-table",  x: 800, y: 800, w: 50,  h: 20 },
+  { type: "plant",         x: 760, y: 760, w: 14,  h: 18 },
+  { type: "lamp",          x: 756, y: 780, w: 10,  h: 20 },
+
+  // Seating area 2 — green benches with table
+  { type: "couch",         x: 1040, y: 755, w: 90, h: 34, color: "#3a6a3a" },
+  { type: "coffee-table",  x: 1060, y: 800, w: 50, h: 20 },
+  { type: "plant",         x: 1135, y: 760, w: 14, h: 18 },
+  { type: "lamp",          x: 1138, y: 780, w: 10, h: 20 },
+
+  // Pond/aquarium feature
+  { type: "aquarium",      x: 920, y: 765, w: 80, h: 40 },
+
+  // Bottom row — more plants and flowers
+  { type: "plant-big",     x: 640, y: 825, w: 24,  h: 32 },
+  { type: "plant-big",     x: 1250, y: 825, w: 24, h: 32 },
+  { type: "plant",         x: 780, y: 835, w: 14,  h: 18 },
+  { type: "plant",         x: 820, y: 838, w: 12,  h: 16 },
+  { type: "plant",         x: 1100, y: 835, w: 14, h: 18 },
+  { type: "plant",         x: 1140, y: 838, w: 12, h: 16 },
+
+  // Decorative elements
+  { type: "trash-can",     x: 870, y: 840, w: 12,  h: 14 },
+  { type: "water-cooler",  x: 1290, y: 760, w: 14, h: 24 },
 ];
 
 // ── Hotspots ──────────────────────────────────────────────────────────────────
@@ -414,11 +445,11 @@ export const IDLE_SPOTS: Record<string, Array<{ x: number; y: number }>> = {
     { x: 350, y: 730 },   // bookshelf area
   ],
   jardim: [
-    { x: 830, y: 780 },   // bench 1
-    { x: 1100, y: 780 },  // bench 2
-    { x: 700, y: 750 },   // near tree
-    { x: 960, y: 760 },   // center path
-    { x: 1220, y: 770 },  // near aquarium
+    { x: 825, y: 740 },   // path near bench 1
+    { x: 1085, y: 740 },  // path near bench 2
+    { x: 960, y: 740 },   // center path by pond
+    { x: 700, y: 740 },   // path near garden bed
+    { x: 1170, y: 740 },  // path near garden bed 2
   ],
 };
 

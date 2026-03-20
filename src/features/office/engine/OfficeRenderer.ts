@@ -67,6 +67,10 @@ export interface AgentAnimState {
   isPlayerControlled?: boolean;
   velX?: number;
   velY?: number;
+  // Transition effects
+  spawnTimer: number;       // countdown from 1 → 0 (fade in on first appear)
+  teleportTimer: number;    // countdown from 1 → 0 (glow when changing rooms)
+  lastRoom: string;         // track room changes for teleport effect
 }
 
 export interface RenderState {
@@ -1537,9 +1541,45 @@ function drawCharacter(
   // Scale up slightly on hover/select
   const scale = isSelected ? 1.15 : isHovered ? 1.08 : 1;
 
+  // ── Spawn fade-in effect ──────────────────────────────────────────────────
+  const spawnAlpha = anim.spawnTimer > 0 ? (1 - anim.spawnTimer) : 1;
+
   ctx.save();
   ctx.translate(x, y + bob);
   ctx.scale(scale, scale);
+
+  // Apply spawn fade
+  if (spawnAlpha < 1) {
+    ctx.globalAlpha = spawnAlpha;
+    // Spawn glow ring
+    const spawnGlow = anim.spawnTimer * 0.8;
+    const spawnRadius = 20 + anim.spawnTimer * 30;
+    ctx.beginPath();
+    ctx.arc(0, 0, spawnRadius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(99,102,241,${spawnGlow * 0.3})`;
+    ctx.fill();
+  }
+
+  // ── Teleport glow effect (when changing rooms) ────────────────────────────
+  if (anim.teleportTimer > 0) {
+    const tGlow = anim.teleportTimer;
+    const tRadius = 15 + tGlow * 20;
+    ctx.beginPath();
+    ctx.arc(0, 0, tRadius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(168,85,247,${tGlow * 0.25})`;
+    ctx.fill();
+    // Sparkle particles around character
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI * 2 * i) / 6 + state.time / 200;
+      const pr = tRadius * (0.6 + tGlow * 0.4);
+      const px = Math.cos(angle) * pr;
+      const py = Math.sin(angle) * pr;
+      ctx.beginPath();
+      ctx.arc(px, py, 2 * tGlow, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(196,181,253,${tGlow * 0.6})`;
+      ctx.fill();
+    }
+  }
 
   // ── Try sprite-based rendering first ────────────────────────────────────────
   const spriteFrames = agentSpriteFrames.get(agent.id);
@@ -1826,6 +1866,7 @@ function drawCharacter(
     ctx.fillText("💬", 0, -CHAR_H / 2 - HEAD_R * 2 - 8);
   }
 
+  ctx.globalAlpha = 1;
   ctx.restore();
 
   // ── Name tag (ALWAYS visible, below character) ──────────────────────────────
@@ -2158,9 +2199,16 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
         isPlayerControlled: agent.id === "joao",
         velX: 0,
         velY: 0,
+        spawnTimer: 1.0,      // start with spawn animation
+        teleportTimer: 0,
+        lastRoom: agent.defaultRoom,
       };
       state.agentAnims.set(agent.id, anim);
     }
+
+    // Update transition timers
+    if (anim.spawnTimer > 0) anim.spawnTimer = Math.max(0, anim.spawnTimer - deltaSec * 2);
+    if (anim.teleportTimer > 0) anim.teleportTimer = Math.max(0, anim.teleportTimer - deltaSec * 2.5);
 
     // Player-controlled agent (João)
     if (anim.isPlayerControlled) {
@@ -2274,13 +2322,20 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
   }
 }
 
-export function setAgentTarget(state: RenderState, agentId: string, tx: number, ty: number) {
+export function setAgentTarget(state: RenderState, agentId: string, tx: number, ty: number, roomId?: string) {
   const anim = state.agentAnims.get(agentId);
   if (anim) {
     // Only recalculate path if target actually changed
     if (Math.abs(anim.targetX - tx) > 2 || Math.abs(anim.targetY - ty) > 2) {
       anim.targetX = tx;
       anim.targetY = ty;
+
+      // Detect room change → trigger teleport effect
+      if (roomId && roomId !== anim.lastRoom) {
+        anim.teleportTimer = 1.0;
+        anim.lastRoom = roomId;
+      }
+
       // Calculate BFS path for AI agents (not player-controlled)
       if (!anim.isPlayerControlled) {
         anim.path = findPath(anim.x, anim.y, tx, ty);
@@ -2537,14 +2592,31 @@ function updateParticles(state: RenderState, delta: number) {
     });
   }
 
-  // Leaves in jardim (580-1360, 660-860)
-  if (Math.random() < 0.02) {
+  // Leaves in jardim (580-1360, 660-860) — more frequent
+  if (Math.random() < 0.04) {
+    const leafColors = [
+      "rgba(74,222,128,0.6)",   // bright green
+      "rgba(134,239,172,0.5)",  // light green
+      "rgba(22,163,74,0.5)",    // dark green
+      "rgba(250,204,21,0.4)",   // yellow (autumn)
+    ];
     state.particles.push({
-      x: 600 + Math.random() * 720, y: 660,
-      vx: 3 + Math.random() * 5, vy: 8 + Math.random() * 5,
-      life: 4, maxLife: 4, size: 2 + Math.random() * 2,
-      color: Math.random() > 0.5 ? "rgba(74,222,128,0.6)" : "rgba(134,239,172,0.5)",
+      x: 600 + Math.random() * 720, y: 660 + Math.random() * 30,
+      vx: 2 + Math.random() * 6, vy: 5 + Math.random() * 8,
+      life: 5, maxLife: 5, size: 2 + Math.random() * 2.5,
+      color: leafColors[Math.floor(Math.random() * leafColors.length)],
       type: "leaf",
+    });
+  }
+
+  // Sparkles on pond/aquarium in jardim
+  if (Math.random() < 0.03) {
+    state.particles.push({
+      x: 925 + Math.random() * 70, y: 770 + Math.random() * 30,
+      vx: (Math.random() - 0.5) * 2, vy: -1 - Math.random() * 2,
+      life: 2, maxLife: 2, size: 1.5 + Math.random(),
+      color: "rgba(147,197,253,0.7)",
+      type: "sparkle",
     });
   }
 

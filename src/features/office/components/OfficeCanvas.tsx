@@ -188,12 +188,11 @@ export function OfficeCanvas() {
       });
 
       if (targetRoom === agentCfg.defaultRoom) {
-        // Stay at their desk
-        setAgentTarget(state, agentCfg.id, agentCfg.spawnX, agentCfg.spawnY);
+        setAgentTarget(state, agentCfg.id, agentCfg.spawnX, agentCfg.spawnY, targetRoom);
       } else if (targetRoom === "sala-reuniao") {
         const seat = meetingSeats[seatCounter % meetingSeats.length];
         seatCounter++;
-        setAgentTarget(state, agentCfg.id, seat.x, seat.y);
+        setAgentTarget(state, agentCfg.id, seat.x, seat.y, targetRoom);
         // Disable player control for João during meeting
         if (isJoao) {
           const joaoAnim = state.agentAnims.get("joao");
@@ -204,7 +203,7 @@ export function OfficeCanvas() {
         const agentIdx = AGENTS.indexOf(agentCfg);
         const spot = getIdleSpot(targetRoom, agentIdx);
         if (spot) {
-          setAgentTarget(state, agentCfg.id, spot.x, spot.y);
+          setAgentTarget(state, agentCfg.id, spot.x, spot.y, targetRoom);
         }
       }
     }
