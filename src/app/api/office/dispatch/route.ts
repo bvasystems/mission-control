@@ -144,7 +144,9 @@ async function callBridgeAndUpdate(
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const agent = searchParams.get("agent");
+  const agentRaw = searchParams.get("agent");
+  // Normalize agent name and also match accented variants
+  const agent = agentRaw ? normalizeName(agentRaw) : null;
   const limit = Math.min(Number(searchParams.get("limit") ?? 50), 200);
 
   try {
@@ -167,18 +169,20 @@ export async function GET(req: NextRequest) {
 
     const excludeAction = searchParams.get("exclude_action");
 
+    // Match agent name with or without accents (e.g., "leticia" matches "letícia")
+    const agentMatch = `lower(translate(target_agent, 'áàãâéèêíìîóòõôúùûçñ', 'aaaaeeeiiioooouuucn'))`;
     const q = agent
       ? excludeAction
         ? await db.query(
             `SELECT * FROM office_dispatches
-             WHERE target_agent = $1 AND (action_type IS NULL OR action_type != $3)
+             WHERE ${agentMatch} = $1 AND (action_type IS NULL OR action_type != $3)
              ORDER BY created_at DESC
              LIMIT $2`,
             [agent, limit, excludeAction]
           )
         : await db.query(
             `SELECT * FROM office_dispatches
-             WHERE target_agent = $1
+             WHERE ${agentMatch} = $1
              ORDER BY created_at DESC
              LIMIT $2`,
             [agent, limit]
@@ -264,6 +268,8 @@ export async function POST(req: NextRequest) {
   }
 
   const d = parsed.data;
+  // Normalize target agent name (remove accents)
+  const normalizedTarget = normalizeName(d.targetAgent);
 
   try {
     const q = await db.query(
@@ -272,7 +278,7 @@ export async function POST(req: NextRequest) {
        VALUES ($1, $2, $3, $4, $5, 'queued', $6::jsonb, 'joao')
        RETURNING *`,
       [
-        d.targetAgent,
+        normalizedTarget,
         d.commandText,
         d.actionType ?? null,
         d.projectKey ?? null,
@@ -284,11 +290,11 @@ export async function POST(req: NextRequest) {
     const dispatch = q.rows[0];
 
     // ── Chamar Bridge API via after() — roda após enviar resposta ao browser ──
-    if (d.targetAgent.toLowerCase() !== "joao") {
+    if (normalizedTarget !== "joao") {
       after(async () => {
         await callBridgeAndUpdate(
           dispatch.id,
-          d.targetAgent,
+          normalizedTarget,
           d.commandText,
           d.actionType
         );

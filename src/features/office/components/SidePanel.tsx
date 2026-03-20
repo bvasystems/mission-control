@@ -1,5 +1,10 @@
 "use client";
 
+// Remove accents for consistent agent IDs
+function normalizeName(name: string): string {
+  return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 import { useState, useRef, useEffect } from "react";
 import {
   X, ExternalLink, AlertTriangle, CheckCircle2, Clock, Bot,
@@ -91,7 +96,8 @@ const PANEL_CONFIG: Record<string, { title: string; icon: React.ReactNode; route
 function AgentDetailPanel({ agentId }: { agentId: string }) {
   const { data: agents } = useAgents();
   const { data: allTasks } = useTasks();
-  const { data: history, isLoading: historyLoading } = useDispatchHistory(agentId);
+  const normalizedId = normalizeName(agentId);
+  const { data: history, isLoading: historyLoading } = useDispatchHistory(normalizedId);
   const { send, sending, error: sendError } = useSendDispatch();
   const { commandDraft, setCommandDraft } = useOfficeStore();
   const [showTaskPicker, setShowTaskPicker] = useState(false);
@@ -118,7 +124,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   const handleSend = async () => {
     if (!commandDraft.trim()) return;
     const result = await send({
-      targetAgent: agent.name.toLowerCase(),
+      targetAgent: normalizeName(agent.name),
       commandText: commandDraft.trim(),
       actionType: "free_command",
     });
@@ -132,7 +138,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   const handleDelegateTask = async (task: Task) => {
     setShowTaskPicker(false);
     const result = await send({
-      targetAgent: agent.name.toLowerCase(),
+      targetAgent: normalizeName(agent.name),
       commandText: `Tarefa delegada: ${task.title}`,
       actionType: "delegate_task",
       taskId: task.id,
@@ -147,7 +153,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   const handleQuickAction = async (actionType: string, template: string) => {
     if (template && !template.endsWith(": ")) {
       const result = await send({
-        targetAgent: agent.name.toLowerCase(),
+        targetAgent: normalizeName(agent.name),
         commandText: template,
         actionType,
       });
