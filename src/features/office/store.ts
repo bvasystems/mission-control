@@ -10,6 +10,7 @@ export type PanelType =
   | "stats"
   | "agent-detail"
   | "meeting"
+  | "autonomous"
   | null;
 
 interface OfficeState {

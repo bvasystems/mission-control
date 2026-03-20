@@ -5,10 +5,34 @@ import { OfficeCanvas } from "@/features/office/components/OfficeCanvas";
 import { SidePanel } from "@/features/office/components/SidePanel";
 import { useOfficeStore } from "@/features/office/store";
 import { useAgents, useIncidents } from "@/features/office/hooks/useOfficeData";
+import { useAutonomous } from "@/features/office/hooks/useAutonomous";
 import {
   Building2, Wifi, WifiOff, AlertTriangle, Users, Zap,
-  Keyboard, Mouse, MonitorUp,
+  Keyboard, Mouse, MonitorUp, Bot,
 } from "lucide-react";
+
+// ── Autonomous Pill ──────────────────────────────────────────────────────────
+
+function AutonomousPill() {
+  const { data } = useAutonomous();
+  const openPanel = useOfficeStore((s) => s.openPanel);
+  const pendingCount = data?.pending?.length ?? 0;
+
+  return (
+    <button
+      onClick={() => openPanel("autonomous")}
+      className="relative flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/[0.06] border border-purple-500/10 hover:bg-purple-500/[0.12] hover:border-purple-500/20 transition-all"
+    >
+      <Bot size={11} className="text-purple-400" />
+      <span className="text-[11px] text-purple-300 font-medium">Faísca</span>
+      {pendingCount > 0 && (
+        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-500 text-[8px] text-black font-bold flex items-center justify-center animate-pulse">
+          {pendingCount}
+        </span>
+      )}
+    </button>
+  );
+}
 
 // ── Status Bar ────────────────────────────────────────────────────────────────
 
@@ -69,6 +93,9 @@ function OfficeStatusBar() {
             <span className="text-[11px] text-red-400 font-medium">{openIncidents}</span>
           </div>
         )}
+
+        {/* Faísca Autonomous */}
+        <AutonomousPill />
 
         {/* Divider */}
         <div className="w-px h-4 bg-white/[0.08]" />

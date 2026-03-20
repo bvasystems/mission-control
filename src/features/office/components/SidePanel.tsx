@@ -9,7 +9,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, ExternalLink, AlertTriangle, CheckCircle2, Clock, Bot,
   FolderKanban, Flame, Activity, Send, Loader2, ChevronDown, ChevronUp,
-  Users, MessageSquare, Sparkles, CircleDot, ArrowUpRight,
+  Users, MessageSquare, Sparkles, CircleDot, ArrowUpRight, Zap, Check, XCircle, Shield,
 } from "lucide-react";
 import { useOfficeStore, type PanelType } from "../store";
 import {
@@ -26,6 +26,8 @@ import {
   type Task,
 } from "../hooks/useOfficeData";
 import { useDispatchHistory, useAllDispatches, useSendDispatch } from "../hooks/useDispatch";
+import { useAutonomous, useApproveAction } from "../hooks/useAutonomous";
+import type { AutonomousAction } from "../hooks/useAutonomous";
 import { QUICK_ACTIONS, type AgentDispatch, type DispatchState } from "../types";
 import Link from "next/link";
 
@@ -89,6 +91,7 @@ const PANEL_CONFIG: Record<string, { title: string; icon: React.ReactNode; route
   stats:          { title: "Dashboard",          icon: <Activity size={15} />,    route: "/" },
   meeting:        { title: "Sala de Reunião",    icon: <MessageSquare size={15} />,route: "/office" },
   "agent-detail": { title: "Controle do Agente", icon: <Bot size={15} />,         route: "/agents" },
+  autonomous:     { title: "Faísca Autônomo",    icon: <Zap size={15} />,         route: "/office" },
 };
 
 // ── Agent Detail Panel (Chat-first layout) ──────────────────────────────────
@@ -401,6 +404,186 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Autonomous Panel (Faísca) ────────────────────────────────────────────────
+
+const ACTION_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  send_message:  { label: "Mensagem",     icon: <Send size={12} />,          color: "text-blue-400" },
+  call_meeting:  { label: "Reunião",      icon: <Users size={12} />,         color: "text-indigo-400" },
+  status_report: { label: "Relatório",    icon: <Activity size={12} />,      color: "text-emerald-400" },
+  delegate_task: { label: "Delegar Task", icon: <ArrowUpRight size={12} />,  color: "text-amber-400" },
+  move_task:     { label: "Mover Task",   icon: <Activity size={12} />,      color: "text-orange-400" },
+  create_task:   { label: "Criar Task",   icon: <Sparkles size={12} />,      color: "text-purple-400" },
+  escalate:      { label: "Escalar",      icon: <AlertTriangle size={12} />, color: "text-red-400" },
+};
+
+function ActionCard({ action, onApprove, onReject, loading }: {
+  action: AutonomousAction;
+  onApprove?: () => void;
+  onReject?: () => void;
+  loading?: boolean;
+}) {
+  const meta = ACTION_LABELS[action.action_type] ?? { label: action.action_type, icon: <Zap size={12} />, color: "text-zinc-400" };
+  const payload = action.payload;
+  const isPending = action.approval_status === "pending";
+
+  return (
+    <div className={`rounded-xl border p-3 space-y-2 ${
+      isPending
+        ? "bg-amber-500/[0.06] border-amber-500/15"
+        : action.approval_status === "rejected"
+        ? "bg-red-500/[0.04] border-red-500/10 opacity-60"
+        : "bg-white/[0.03] border-white/[0.06]"
+    }`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className={meta.color}>{meta.icon}</span>
+          <span className="text-xs font-medium text-zinc-200">{meta.label}</span>
+          {isPending && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-medium animate-pulse">
+              Aguardando
+            </span>
+          )}
+          {action.approval_status === "auto_approved" && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">Auto</span>
+          )}
+          {action.approval_status === "approved" && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">Aprovado</span>
+          )}
+          {action.approval_status === "rejected" && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">Rejeitado</span>
+          )}
+        </div>
+        <span className="text-[9px] text-zinc-600">{timeAgo(action.created_at)}</span>
+      </div>
+
+      {/* Payload summary */}
+      <div className="text-xs text-zinc-400 leading-relaxed">
+        {payload.agent && <span>Agente: <span className="text-zinc-300">{payload.agent as string}</span> · </span>}
+        {payload.message && <p className="text-zinc-300 mt-0.5">"{(payload.message as string).slice(0, 120)}"</p>}
+        {payload.task && <p className="text-zinc-300 mt-0.5">Task: {payload.task as string}</p>}
+        {payload.title && <p className="text-zinc-300 mt-0.5">Task: {payload.title as string}</p>}
+        {payload.topic && <p className="text-zinc-300 mt-0.5">Tema: {payload.topic as string}</p>}
+        {payload.issue && <p className="text-zinc-300 mt-0.5">Problema: {payload.issue as string}</p>}
+        {payload.agents && <p className="text-zinc-300 mt-0.5">Participantes: {(payload.agents as string[]).join(", ")}</p>}
+      </div>
+
+      {action.reasoning && (
+        <p className="text-[10px] text-zinc-500 italic">
+          <Shield size={10} className="inline mr-1" />
+          {action.reasoning}
+        </p>
+      )}
+
+      {/* Approval buttons */}
+      {isPending && onApprove && onReject && (
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={onApprove}
+            disabled={loading}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/15 hover:border-emerald-500/25 text-emerald-400 hover:text-emerald-300 text-xs font-medium transition-all disabled:opacity-40"
+          >
+            <Check size={13} /> Aprovar
+          </button>
+          <button
+            onClick={onReject}
+            disabled={loading}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-600/10 hover:bg-red-600/20 border border-red-500/10 hover:border-red-500/20 text-red-400 hover:text-red-300 text-xs font-medium transition-all disabled:opacity-40"
+          >
+            <XCircle size={13} /> Rejeitar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AutonomousPanel() {
+  const { data, isLoading } = useAutonomous();
+  const { approve, loading: approving } = useApproveAction();
+
+  const pending = data?.pending ?? [];
+  const recent = data?.recent ?? [];
+  const lastRun = data?.runs?.[0];
+
+  return (
+    <div className="space-y-5 px-5 py-4 overflow-y-auto">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/15 flex items-center justify-center">
+          <Zap size={20} className="text-purple-400" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-white">Faísca Autônomo</h3>
+          <p className="text-[10px] text-zinc-500">
+            Loop a cada 15min · {lastRun ? `Último: ${timeAgo(lastRun.created_at)}` : "Nenhum run ainda"}
+          </p>
+        </div>
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 size={16} className="animate-spin text-zinc-600" />
+        </div>
+      )}
+
+      {/* Pending approvals */}
+      {pending.length > 0 && (
+        <div className="space-y-2">
+          <SectionLabel>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              Aguardando aprovação ({pending.length})
+            </span>
+          </SectionLabel>
+          {pending.map((a) => (
+            <ActionCard
+              key={a.id}
+              action={a}
+              loading={approving}
+              onApprove={() => approve(a.id, "approved")}
+              onReject={() => approve(a.id, "rejected")}
+            />
+          ))}
+        </div>
+      )}
+
+      {pending.length === 0 && !isLoading && (
+        <div className="text-center py-4">
+          <CheckCircle2 size={16} className="text-emerald-500/40 mx-auto mb-1.5" />
+          <p className="text-xs text-zinc-500">Nenhuma ação pendente</p>
+        </div>
+      )}
+
+      {/* Recent actions */}
+      {recent.length > 0 && (
+        <div className="space-y-2">
+          <SectionLabel>Ações recentes</SectionLabel>
+          {recent.filter((a) => a.approval_status !== "pending").slice(0, 10).map((a) => (
+            <ActionCard key={a.id} action={a} />
+          ))}
+        </div>
+      )}
+
+      {/* Last run info */}
+      {lastRun && (
+        <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-3">
+          <p className="text-[10px] text-zinc-500 mb-1">Último ciclo autônomo</p>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-zinc-400">{lastRun.actions_count} ações</span>
+            <span className="text-zinc-600">{lastRun.duration_ms ? `${(lastRun.duration_ms / 1000).toFixed(1)}s` : "—"}</span>
+          </div>
+          {lastRun.context_summary && (
+            <p className="text-[10px] text-zinc-500 mt-1.5 leading-relaxed">{lastRun.context_summary}</p>
+          )}
+          {lastRun.error && (
+            <p className="text-[10px] text-red-400 mt-1.5">{lastRun.error}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -922,6 +1105,7 @@ function PanelContent({ panel, data }: { panel: PanelType; data: Record<string, 
     case "crons":        return <CronsPanel />;
     case "stats":        return <StatsPanel />;
     case "meeting":      return <MeetingPanel />;
+    case "autonomous":   return <AutonomousPanel />;
     case "agent-detail": return <AgentDetailPanel agentId={(data?.agentId as string) ?? ""} />;
     case "kanban":
       return (
