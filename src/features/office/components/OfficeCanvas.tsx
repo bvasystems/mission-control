@@ -133,7 +133,8 @@ export function OfficeCanvas() {
           if (age > 300_000) continue;
         }
 
-        const agentId = AGENTS.find((a) => a.name.toLowerCase() === d.target_agent.toLowerCase())?.id;
+        const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const agentId = AGENTS.find((a) => normalize(a.name) === normalize(d.target_agent))?.id;
         if (agentId) {
           console.log("[office] Agent responded:", agentId, d.response.slice(0, 50));
           state.agentFlash.set(agentId, performance.now() + 4000);
