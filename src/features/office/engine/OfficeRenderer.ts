@@ -2161,8 +2161,94 @@ function drawCharacterOverlays(
     ctx.stroke();
   }
 
-  // Activity bubble + accessories + proximity are handled in the original drawCharacter tail
-  // (they reference local vars from the closure — kept inline in drawCharacter for now)
+  // ── Response flash ─────────────────────────────────────────────────────────
+  const flashEnd = state.agentFlash?.get(agent.id);
+  const isFlashing = flashEnd && state.time < flashEnd;
+  if (isFlashing) {
+    const flashProgress = (flashEnd - state.time) / 5000;
+    const pulse = Math.sin(state.time / 150) * 0.5 + 0.5;
+    ctx.beginPath();
+    ctx.arc(x, y + bob, 26, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(34,197,94,${pulse * flashProgress * 0.8})`;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  // ── Unread response bubble ────────────────────────────────────────────────
+  const unreadText = state.agentUnread?.get(agent.id);
+  if (unreadText) {
+    const bubbleX = x;
+    const bubbleY = y + bob - CHAR_H / 2 - HEAD_R * 2 - 28;
+    const floatY = Math.sin(state.time / 600) * 2;
+
+    ctx.font = "8px 'Inter', system-ui, sans-serif";
+    let preview = unreadText;
+    if (preview.length > 40) preview = preview.slice(0, 37) + "...";
+    const textW = ctx.measureText(preview).width;
+    const bw = Math.min(Math.max(textW + 16, 50), 140);
+    const bh = 22;
+
+    ctx.save();
+    ctx.shadowColor = "rgba(34,197,94,0.3)";
+    ctx.shadowBlur = 8;
+    roundRect(ctx, bubbleX - bw / 2, bubbleY + floatY - bh / 2, bw, bh, 6);
+    ctx.fillStyle = "rgba(34,197,94,0.9)";
+    ctx.fill();
+    ctx.restore();
+
+    // Tail
+    ctx.beginPath();
+    ctx.moveTo(bubbleX - 4, bubbleY + floatY + bh / 2 - 2);
+    ctx.lineTo(bubbleX, bubbleY + floatY + bh / 2 + 5);
+    ctx.lineTo(bubbleX + 4, bubbleY + floatY + bh / 2 - 2);
+    ctx.fillStyle = "rgba(34,197,94,0.9)";
+    ctx.fill();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(preview, bubbleX, bubbleY + floatY);
+  }
+
+  // ── Unread badge (persistent "!" dot) ─────────────────────────────────────
+  if (unreadText && !isFlashing) {
+    const badgePulse = Math.sin(state.time / 800) * 0.3 + 0.7;
+    ctx.beginPath();
+    ctx.arc(x + 20, y + bob - CHAR_H / 2 - HEAD_R, 5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(34,197,94,${badgePulse})`;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.font = "bold 7px 'Inter', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#fff";
+    ctx.fillText("!", x + 20, y + bob - CHAR_H / 2 - HEAD_R);
+  }
+
+  // ── Proximity "PRESS E" ───────────────────────────────────────────────────
+  if (state.nearbyAgent === agent.id && agent.id !== "joao") {
+    const pulseAlpha = Math.sin(state.time / 400) * 0.2 + 0.5;
+    ctx.beginPath();
+    ctx.ellipse(x, y + bob + CHAR_H / 2 + 4, 24, 10, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(99,102,241,${pulseAlpha})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.font = "bold 8px 'Inter', system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const tipY = y + bob - CHAR_H / 2 - HEAD_R * 2 - 8;
+    const tipW = 52;
+    roundRect(ctx, x - tipW / 2, tipY - 8, tipW, 16, 4);
+    ctx.fillStyle = "rgba(99,102,241,0.85)";
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.fillText("PRESS E", x, tipY);
+  }
 }
 
 // ── Movement system ───────────────────────────────────────────────────────────
