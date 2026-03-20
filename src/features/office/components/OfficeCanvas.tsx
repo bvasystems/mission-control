@@ -77,7 +77,7 @@ export function OfficeCanvas() {
   const { data: dispatches } = useAllDispatches();
   const { data: incidents } = useIncidents();
   const { data: tasks } = useTasks();
-  const { openPanel, selectAgent, setHoveredEntity } = useOfficeStore();
+  const { openPanel, closePanel, selectAgent, setHoveredEntity } = useOfficeStore();
   const selectedAgentId = useOfficeStore((s) => s.selectedAgentId);
   const meetingAgents = useOfficeStore((s) => s.meetingAgents);
 
@@ -316,13 +316,14 @@ export function OfficeCanvas() {
       stateRef.current.time = time;
       renderOffice(ctx!, stateRef.current);
 
-      // ── Proximity auto-chat: open agent panel when João walks near ──
+      // ── Proximity auto-chat: open when near, close when away ──
       const nearby = stateRef.current.nearbyAgent;
       if (nearby && nearby !== lastNearbyRef.current) {
         lastNearbyRef.current = nearby;
         selectAgent(nearby);
       } else if (!nearby && lastNearbyRef.current) {
         lastNearbyRef.current = null;
+        closePanel();
       }
 
       rafRef.current = requestAnimationFrame(frame);
