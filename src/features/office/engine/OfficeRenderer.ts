@@ -13,6 +13,12 @@ import {
   CHAR_FRAME_W, CHAR_FRAME_H,
 } from "./characterSprites";
 import { findPath, isPixelWalkable } from "./tileGrid";
+import { getSpriteImage, getSpriteInfo, preloadFurnitureSprites, NO_SPRITE_TYPES } from "./furnitureSprites";
+
+// Pre-load furniture sprites
+if (typeof window !== "undefined") {
+  preloadFurnitureSprites();
+}
 
 // ── Character sprite cache (per agent) ───────────────────────────────────────
 const agentSpriteFrames = new Map<string, CharFrames>();
@@ -457,6 +463,29 @@ function drawRoom(ctx: CanvasRenderingContext2D, room: Room) {
 // ── Furniture drawing ─────────────────────────────────────────────────────────
 
 function drawFurniture(ctx: CanvasRenderingContext2D, f: Furniture) {
+  // ── Try sprite first ────────────────────────────────────────────────────
+  if (!NO_SPRITE_TYPES.has(f.type)) {
+    const img = getSpriteImage(f.type);
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.imageSmoothingEnabled = false;
+      // Draw sprite scaled to fit the furniture's bounding box
+      // Maintain aspect ratio, anchor at bottom-center
+      const info = getSpriteInfo(f.type)!;
+      const scaleX = f.w / info.nativeW;
+      const scaleY = f.h / info.nativeH;
+      const scale = Math.max(scaleX, scaleY);
+      const drawW = info.nativeW * scale;
+      const drawH = info.nativeH * scale;
+      // Anchor at bottom of furniture position, centered horizontally
+      const drawX = f.x + (f.w - drawW) / 2;
+      const drawY = f.y + f.h - drawH;
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      ctx.imageSmoothingEnabled = true;
+      return;
+    }
+  }
+
+  // ── Fallback: programmatic drawing ────────────────────────────────────────
   switch (f.type) {
     case "desk": {
       // Wood surface with slight 3D
