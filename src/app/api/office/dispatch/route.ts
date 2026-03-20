@@ -8,6 +8,11 @@ export const maxDuration = 60;
 
 const BRIDGE_URL = "https://bridge.axiushub.online";
 
+// Remove accents and lowercase for Bridge API agent IDs
+function normalizeName(name: string): string {
+  return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 // ── Validation ────────────────────────────────────────────────────────────────
 
 const createSchema = z.object({
@@ -61,7 +66,7 @@ async function callBridgeAndUpdate(
 
   try {
     const bridgeRes = await fetch(
-      `${BRIDGE_URL}/agents/${encodeURIComponent(targetAgent.toLowerCase())}/command`,
+      `${BRIDGE_URL}/agents/${encodeURIComponent(normalizeName(targetAgent))}/command`,
       {
         method: "POST",
         headers: {
