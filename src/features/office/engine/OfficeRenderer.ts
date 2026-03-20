@@ -23,7 +23,7 @@ if (typeof window !== "undefined") {
 // ── Character sprite cache (per agent) ───────────────────────────────────────
 const agentSpriteFrames = new Map<string, CharFrames>();
 const AGENT_PALETTES: Record<string, number> = {
-  joao: 0, faisca: 1, caio: 2, leticia: 3, clara: 4,
+  joao: 0, faisca: 0, caio: 2, leticia: 3, clara: 4,
 };
 
 // Pre-load character sprites on module load
