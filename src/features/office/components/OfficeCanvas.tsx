@@ -118,15 +118,43 @@ export function OfficeCanvas() {
 
     // 2b. Response detection moved to separate effect for reliability
 
-    // 3. Incident alerts
+    // 3. Incident alerts — map incidents to rooms by source/owner
     const alertMap = new Map<string, string>();
     const openIncidents = incidents?.filter((i) => i.status !== "closed") ?? [];
-    if (openIncidents.some((i) => i.severity === "critical")) {
-      alertMap.set("sala-reuniao", "critical");
-      alertMap.set("sala-reuniao:count", String(openIncidents.length));
-    } else if (openIncidents.some((i) => i.severity === "high")) {
-      alertMap.set("sala-reuniao", "warning");
-      alertMap.set("sala-reuniao:count", String(openIncidents.length));
+
+    // Source/owner → room mapping
+    const SOURCE_ROOM: Record<string, string> = {
+      operacoes: "operacoes", operations: "operacoes", infra: "operacoes",
+      desenvolvimento: "desenvolvimento", dev: "desenvolvimento", code: "desenvolvimento",
+      reconciliation: "operacoes", system: "operacoes",
+    };
+
+    // Map each incident to its room
+    const roomIncidents = new Map<string, { count: number; maxSeverity: string }>();
+    const severityOrder = ["low", "medium", "high", "critical"];
+
+    for (const inc of openIncidents) {
+      const src = (inc.source ?? inc.owner ?? "").toLowerCase();
+      const room = SOURCE_ROOM[src] ?? "sala-reuniao"; // default: sala de reunião
+
+      const existing = roomIncidents.get(room) ?? { count: 0, maxSeverity: "low" };
+      existing.count++;
+      if (severityOrder.indexOf(inc.severity) > severityOrder.indexOf(existing.maxSeverity)) {
+        existing.maxSeverity = inc.severity;
+      }
+      roomIncidents.set(room, existing);
+    }
+
+    // Always show total in sala-reuniao if there are any incidents
+    if (openIncidents.length > 0 && !roomIncidents.has("sala-reuniao")) {
+      const maxSev = openIncidents.reduce((max, i) =>
+        severityOrder.indexOf(i.severity) > severityOrder.indexOf(max) ? i.severity : max, "low");
+      roomIncidents.set("sala-reuniao", { count: openIncidents.length, maxSeverity: maxSev });
+    }
+
+    for (const [room, { count, maxSeverity }] of roomIncidents) {
+      alertMap.set(room, maxSeverity === "critical" ? "critical" : "warning");
+      alertMap.set(`${room}:count`, String(count));
     }
     state.alertRooms = alertMap;
 

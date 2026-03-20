@@ -17,7 +17,7 @@ export const STATUS_COLORS: Record<string, number> = {
 
 export const AGENT_COLORS: Record<string, number> = {
   "joao": 0x3b82f6,
-  "jota": 0x8b5cf6,
+  "faisca": 0x8b5cf6,
   "caio": 0x10b981,
   "leticia": 0xf59e0b,
   "clara": 0xec4899,

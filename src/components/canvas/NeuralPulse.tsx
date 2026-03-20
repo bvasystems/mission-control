@@ -8,7 +8,7 @@ const TARGETS = [
   { id: "faisca",  label: "Faísca" },
   { id: "caio",    label: "Caio" },
   { id: "leticia", label: "Letícia" },
-  { id: "jota",    label: "Jota" },
+  { id: "faisca",  label: "Faísca" },
   { id: "clara",   label: "Clara" },
 ];
 

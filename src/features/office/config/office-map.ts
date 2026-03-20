@@ -181,7 +181,7 @@ export const FURNITURE: Furniture[] = [
   { type: "monitor",     x: 475, y: 115, w: 35,  h: 12 },
   { type: "monitor",     x: 515, y: 116, w: 22,  h: 10, variant: 1 },
   { type: "chair",       x: 495, y: 175, w: 24,  h: 24 },
-  // Jota's desk — dual monitor setup
+  // Faísca's desk — dual monitor setup
   { type: "desk",        x: 630, y: 120, w: 90,  h: 42 },
   { type: "monitor",     x: 645, y: 115, w: 35,  h: 12 },
   { type: "monitor",     x: 685, y: 116, w: 22,  h: 10, variant: 2 },
@@ -392,7 +392,7 @@ export const AGENTS: AgentConfig[] = [
     defaultRoom: "diretoria", spawnX: 505, spawnY: 180,  // chair at desk 1
   },
   {
-    id: "jota", name: "Jota", role: "CTO / Líder",
+    id: "faisca", name: "Faísca", role: "CTO / Líder",
     department: "diretoria",
     skinColor: "#f0c8a0", shirtColor: "#8b5cf6", hairColor: "#2d1b4e", pantsColor: "#3b2066",
     hairStyle: "medium",

@@ -11,7 +11,7 @@ const CHAR_H = 24;
 
 // Character sprite sheet indices: each char PNG is a spritesheet with walk frames
 const CHAR_PALETTES: Record<string, number> = {
-  joao: 0, jota: 1, caio: 2, leticia: 3, clara: 4,
+  joao: 0, faisca: 1, caio: 2, leticia: 3, clara: 4,
 };
 
 export class AgentSprite {

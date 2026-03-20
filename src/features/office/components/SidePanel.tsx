@@ -33,7 +33,7 @@ import Link from "next/link";
 
 const AGENT_COLORS: Record<string, { bg: string; text: string; ring: string; gradient: string }> = {
   "João":   { bg: "bg-blue-500",   text: "text-blue-400",   ring: "ring-blue-500/30",   gradient: "from-blue-500/20 to-blue-600/10" },
-  "Jota":   { bg: "bg-violet-500", text: "text-violet-400", ring: "ring-violet-500/30", gradient: "from-violet-500/20 to-violet-600/10" },
+  "Faísca": { bg: "bg-violet-500", text: "text-violet-400", ring: "ring-violet-500/30", gradient: "from-violet-500/20 to-violet-600/10" },
   "Caio":   { bg: "bg-emerald-500",text: "text-emerald-400",ring: "ring-emerald-500/30",gradient: "from-emerald-500/20 to-emerald-600/10" },
   "Letícia":{ bg: "bg-amber-500",  text: "text-amber-400",  ring: "ring-amber-500/30",  gradient: "from-amber-500/20 to-amber-600/10" },
   "Clara":  { bg: "bg-pink-500",   text: "text-pink-400",   ring: "ring-pink-500/30",   gradient: "from-pink-500/20 to-pink-600/10" },
@@ -46,7 +46,7 @@ function getAgentColor(name: string) {
 
 function agentColorHex(name: string): string {
   const map: Record<string, string> = {
-    "João": "#3b82f6", "Jota": "#8b5cf6", "Caio": "#10b981",
+    "João": "#3b82f6", "Faísca": "#8b5cf6", "Caio": "#10b981",
     "Letícia": "#f59e0b", "Clara": "#ec4899",
   };
   return map[name] ?? "#6b7280";
@@ -207,6 +207,19 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
           </button>
         </div>
 
+        {/* Active tasks — always visible when agent has work */}
+        {agentTasks.filter((t) => t.column === "in_progress" || t.column === "review").length > 0 && (
+          <div className="mt-2.5 space-y-1">
+            {agentTasks.filter((t) => t.column === "in_progress" || t.column === "review").slice(0, 3).map((t: Task) => (
+              <div key={t.id} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-blue-500/[0.06] border border-blue-500/[0.08]">
+                <PriorityBadge priority={t.priority} small />
+                <span className="text-[11px] text-zinc-300 truncate flex-1">{t.title}</span>
+                <ColumnBadge column={t.column} />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Expandable info section */}
         {showInfo && (
           <div className="mt-3 pt-3 border-t border-white/[0.05] space-y-2.5">
@@ -226,11 +239,11 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
               </div>
             </div>
 
-            {/* Tasks */}
+            {/* All tasks (including backlog, assigned, blocked) */}
             {agentTasks.length > 0 && (
               <div className="space-y-1">
-                <p className="text-[9px] text-zinc-600 uppercase font-medium">Tasks ({agentTasks.length})</p>
-                {agentTasks.slice(0, 3).map((t: Task) => (
+                <p className="text-[9px] text-zinc-600 uppercase font-medium">Todas as tasks ({agentTasks.length})</p>
+                {agentTasks.map((t: Task) => (
                   <div key={t.id} className="flex items-center gap-1.5 text-[11px]">
                     <PriorityBadge priority={t.priority} small />
                     <span className="text-zinc-400 truncate flex-1">{t.title}</span>

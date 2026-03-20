@@ -30,6 +30,43 @@ const updateSchema = z.object({
   response: z.string().optional(),
 });
 
+// ── Task auto-transition helper ───────────────────────────────────────────────
+
+const ACTION_TO_COLUMN: Record<string, { column: string; status: string }> = {
+  delegate_task:   { column: "in_progress", status: "In Progress" },
+  request_review:  { column: "review",      status: "Review" },
+  mark_blocked:    { column: "blocked",     status: "Blocked" },
+};
+
+async function syncTaskColumn(dispatchId: string, outcome: "done" | "failed") {
+  try {
+    const row = await db.query(
+      `SELECT task_id, action_type FROM office_dispatches WHERE id = $1`,
+      [dispatchId]
+    );
+    const taskId = row.rows[0]?.task_id;
+    if (!taskId) return;
+
+    if (outcome === "failed") {
+      await db.query(
+        `UPDATE tasks SET "column" = 'blocked', status = 'Blocked', updated_at = NOW() WHERE id = $1`,
+        [taskId]
+      );
+      return;
+    }
+
+    const mapping = ACTION_TO_COLUMN[row.rows[0]?.action_type];
+    if (mapping) {
+      await db.query(
+        `UPDATE tasks SET "column" = $1, status = $2, updated_at = NOW() WHERE id = $3`,
+        [mapping.column, mapping.status, taskId]
+      );
+    }
+  } catch (err) {
+    console.error("syncTaskColumn error:", err);
+  }
+}
+
 // ── Bridge call helper ────────────────────────────────────────────────────────
 
 async function callBridgeAndUpdate(
@@ -126,6 +163,9 @@ async function callBridgeAndUpdate(
        WHERE id = $2`,
       [responseText, dispatchId]
     );
+
+    // Auto-move linked task on kanban
+    await syncTaskColumn(dispatchId, "done");
   } catch (error) {
     console.error("dispatch/after bridge error:", error);
     await db.query(
@@ -137,6 +177,9 @@ async function callBridgeAndUpdate(
         dispatchId,
       ]
     );
+
+    // Auto-move linked task to blocked on failure
+    await syncTaskColumn(dispatchId, "failed");
   }
 }
 

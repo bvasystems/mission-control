@@ -233,6 +233,49 @@ Sem dados de agentes ainda.
 </tbody>
 </table>
 </div>
+
+{/* Reliability Section */}
+<div className="glass rounded-2xl p-5 shadow-xl shadow-black/50">
+<h2 className="text-sm uppercase tracking-widest text-zinc-400 font-medium mb-4">Confiabilidade dos Agentes</h2>
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+{rows.map((r) => {
+const score = r.stat?.reliability_score;
+const meta = r.stat?.reliability_meta;
+const s = score != null ? Math.round(score) : null;
+const barColor = s == null ? "bg-zinc-700" : s >= 80 ? "bg-emerald-500" : s >= 60 ? "bg-yellow-500" : "bg-red-500";
+
+return (
+<div key={r.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3">
+<div className="flex items-center justify-between">
+<div className="flex items-center gap-2">
+<div className={`w-2.5 h-2.5 rounded-full ${r.status === "active" ? "bg-emerald-500" : r.status === "degraded" ? "bg-yellow-500" : r.status === "down" ? "bg-red-500" : "bg-zinc-500"}`} />
+<span className="text-sm text-zinc-200 font-medium">{r.name}</span>
+</div>
+<span className={`text-lg font-semibold ${s == null ? "text-zinc-600" : s >= 80 ? "text-emerald-400" : s >= 60 ? "text-yellow-400" : "text-red-400"}`}>
+{s != null ? `${s}%` : "--"}
+</span>
+</div>
+{/* Progress bar */}
+<div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+<div className={`h-full rounded-full ${barColor} transition-all duration-500`} style={{ width: `${s ?? 0}%` }} />
+</div>
+{/* Meta metrics */}
+{meta ? (
+<div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+<div className="flex justify-between"><span className="text-zinc-600">SLA</span><span className="text-zinc-300">{meta.sla_rate != null ? `${Math.round(meta.sla_rate)}%` : "--"}</span></div>
+<div className="flex justify-between"><span className="text-zinc-600">Conclusao</span><span className="text-zinc-300">{meta.completion_rate != null ? `${Math.round(meta.completion_rate)}%` : "--"}</span></div>
+<div className="flex justify-between"><span className="text-zinc-600">Erros</span><span className={`${(meta.error_rate ?? 0) > 10 ? "text-red-400" : "text-zinc-300"}`}>{meta.error_rate != null ? `${Math.round(meta.error_rate)}%` : "--"}</span></div>
+<div className="flex justify-between"><span className="text-zinc-600">ACK medio</span><span className="text-zinc-300">{meta.avg_ack_min != null ? `${Math.round(meta.avg_ack_min)}m` : "--"}</span></div>
+</div>
+) : (
+<p className="text-[10px] text-zinc-700 text-center">Sem dados de confiabilidade</p>
+)}
+</div>
+);
+})}
+</div>
+{rows.length === 0 && <p className="text-zinc-600 text-sm text-center py-4">Nenhum agente encontrado</p>}
+</div>
 </main>
 );
 }
