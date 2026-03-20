@@ -12,6 +12,7 @@ import {
   getCharFrames, getCharacterFrame, preloadAllCharacters,
   CHAR_FRAME_W, CHAR_FRAME_H,
 } from "./characterSprites";
+import { findPath, isPixelWalkable } from "./tileGrid";
 
 // ── Character sprite cache (per agent) ───────────────────────────────────────
 const agentSpriteFrames = new Map<string, CharFrames>();
@@ -51,6 +52,8 @@ export interface AgentAnimState {
   y: number;
   targetX: number;
   targetY: number;
+  path: Array<{ x: number; y: number }>;  // BFS path waypoints
+  pathIndex: number;                        // current waypoint index
   direction: Direction;
   walking: boolean;
   walkCycle: number; // 0-3 frame counter
@@ -2120,6 +2123,8 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
         y: agent.spawnY,
         targetX: agent.spawnX,
         targetY: agent.spawnY,
+        path: [],
+        pathIndex: 0,
         direction: "down",
         walking: false,
         walkCycle: 0,
@@ -2142,18 +2147,15 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
         const newX = anim.x + vx * speed * deltaSec;
         const newY = anim.y + vy * speed * deltaSec;
 
-        // Collision check (walls + furniture)
-        const canMoveXY = isWalkable(newX, newY) && !collidesWithFurniture(newX, newY);
-        if (canMoveXY) {
+        // Tile-based collision check (walls + furniture via tile grid)
+        if (isPixelWalkable(newX, newY)) {
           anim.x = Math.max(20, Math.min(CANVAS_W - 20, newX));
           anim.y = Math.max(20, Math.min(CANVAS_H - 20, newY));
         } else {
           // Try sliding along walls/furniture
-          const canMoveX = isWalkable(newX, anim.y) && !collidesWithFurniture(newX, anim.y);
-          const canMoveY = isWalkable(anim.x, newY) && !collidesWithFurniture(anim.x, newY);
-          if (canMoveX) {
+          if (isPixelWalkable(newX, anim.y)) {
             anim.x = Math.max(20, Math.min(CANVAS_W - 20, newX));
-          } else if (canMoveY) {
+          } else if (isPixelWalkable(anim.x, newY)) {
             anim.y = Math.max(20, Math.min(CANVAS_H - 20, newY));
           }
         }
@@ -2183,29 +2185,65 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
       continue;
     }
 
-    // AI-controlled agents — move freely (no collision, NPCs don't need pathfinding)
-    const dx = anim.targetX - anim.x;
-    const dy = anim.targetY - anim.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    // AI-controlled agents — follow BFS path through doors
+    if (anim.path.length > 0 && anim.pathIndex < anim.path.length) {
+      // Move toward current waypoint
+      const waypoint = anim.path[anim.pathIndex];
+      const dx = waypoint.x - anim.x;
+      const dy = waypoint.y - anim.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist > 2) {
-      anim.walking = true;
-      const step = Math.min(WALK_SPEED * deltaSec, dist);
-      anim.x += (dx / dist) * step;
-      anim.y += (dy / dist) * step;
+      if (dist > 2) {
+        anim.walking = true;
+        const step = Math.min(WALK_SPEED * deltaSec, dist);
+        anim.x += (dx / dist) * step;
+        anim.y += (dy / dist) * step;
 
-      if (Math.abs(dx) > Math.abs(dy)) {
-        anim.direction = dx > 0 ? "right" : "left";
+        if (Math.abs(dx) > Math.abs(dy)) {
+          anim.direction = dx > 0 ? "right" : "left";
+        } else {
+          anim.direction = dy > 0 ? "down" : "up";
+        }
+
+        anim.walkCycle += WALK_FRAME_RATE * deltaSec;
+        if (anim.walkCycle >= 4) anim.walkCycle -= 4;
       } else {
-        anim.direction = dy > 0 ? "down" : "up";
+        // Reached waypoint — advance to next
+        anim.pathIndex++;
+        if (anim.pathIndex >= anim.path.length) {
+          // Path complete
+          anim.walking = false;
+          anim.x = anim.targetX;
+          anim.y = anim.targetY;
+          anim.path = [];
+          anim.pathIndex = 0;
+        }
       }
-
-      anim.walkCycle += WALK_FRAME_RATE * deltaSec;
-      if (anim.walkCycle >= 4) anim.walkCycle -= 4;
     } else {
-      anim.walking = false;
-      anim.x = anim.targetX;
-      anim.y = anim.targetY;
+      // No path or path complete — direct move fallback
+      const dx = anim.targetX - anim.x;
+      const dy = anim.targetY - anim.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 2) {
+        anim.walking = true;
+        const step = Math.min(WALK_SPEED * deltaSec, dist);
+        anim.x += (dx / dist) * step;
+        anim.y += (dy / dist) * step;
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+          anim.direction = dx > 0 ? "right" : "left";
+        } else {
+          anim.direction = dy > 0 ? "down" : "up";
+        }
+
+        anim.walkCycle += WALK_FRAME_RATE * deltaSec;
+        if (anim.walkCycle >= 4) anim.walkCycle -= 4;
+      } else {
+        anim.walking = false;
+        anim.x = anim.targetX;
+        anim.y = anim.targetY;
+      }
     }
   }
 }
@@ -2213,8 +2251,16 @@ export function updateAgentMovement(state: RenderState, deltaMs: number) {
 export function setAgentTarget(state: RenderState, agentId: string, tx: number, ty: number) {
   const anim = state.agentAnims.get(agentId);
   if (anim) {
-    anim.targetX = tx;
-    anim.targetY = ty;
+    // Only recalculate path if target actually changed
+    if (Math.abs(anim.targetX - tx) > 2 || Math.abs(anim.targetY - ty) > 2) {
+      anim.targetX = tx;
+      anim.targetY = ty;
+      // Calculate BFS path for AI agents (not player-controlled)
+      if (!anim.isPlayerControlled) {
+        anim.path = findPath(anim.x, anim.y, tx, ty);
+        anim.pathIndex = 0;
+      }
+    }
   }
 }
 
