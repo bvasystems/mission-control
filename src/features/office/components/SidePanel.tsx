@@ -5,7 +5,7 @@ function normalizeName(name: string): string {
   return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, ExternalLink, AlertTriangle, CheckCircle2, Clock, Bot,
   FolderKanban, Flame, Activity, Send, Loader2, ChevronDown, ChevronUp,
@@ -421,7 +421,25 @@ function MeetingPanel() {
 
   const meetingFeed = (recentDispatches?.filter(
     (d) => d.action_type === "meeting_command"
-  ) ?? []).slice(0, 30);
+  ) ?? []).slice(0, 60);
+
+  // Group dispatches with same command_text sent within 5s into a single user bubble
+  const groupedFeed = useMemo(() => {
+    const groups: { text: string; time: string; dispatches: typeof meetingFeed }[] = [];
+    for (const d of meetingFeed) {
+      const last = groups[groups.length - 1];
+      if (
+        last &&
+        last.text === d.command_text &&
+        Math.abs(new Date(d.created_at).getTime() - new Date(last.time).getTime()) < 5000
+      ) {
+        last.dispatches.push(d);
+      } else {
+        groups.push({ text: d.command_text, time: d.created_at, dispatches: [d] });
+      }
+    }
+    return groups;
+  }, [meetingFeed]);
 
   const agentName = (id: string) => agents?.find((a) => agentKey(a) === id)?.name ?? id;
 
@@ -522,32 +540,34 @@ function MeetingPanel() {
             <p className="text-xs text-zinc-600">Envie uma mensagem para iniciar</p>
           </div>
         )}
-        {[...meetingFeed].reverse().map((d) => (
-          <div key={d.id} className="space-y-1.5">
-            {/* Your message */}
+        {[...groupedFeed].reverse().map((group, gi) => (
+          <div key={gi} className="space-y-1.5">
+            {/* Single user bubble for the group */}
             <div className="flex justify-end">
               <div className="max-w-[80%] bg-indigo-600/15 border border-indigo-500/12 rounded-2xl rounded-br-md px-3.5 py-2">
-                <p className="text-xs text-indigo-200 break-words leading-relaxed">{d.command_text}</p>
+                <p className="text-xs text-indigo-200 break-words leading-relaxed">{group.text}</p>
                 <span className="text-[9px] text-indigo-400/40 mt-1 block text-right">
-                  para {agentName(d.target_agent)} · {timeAgo(d.created_at)}
+                  para todos · {timeAgo(group.time)}
                 </span>
               </div>
             </div>
-            {/* Agent response */}
-            {d.response ? (
-              <ChatBubbleInbound name={agentName(d.target_agent)} text={d.response} time={d.responded_at ?? d.updated_at} />
-            ) : d.status === "failed" ? (
-              <div className="flex justify-start">
-                <span className="text-[10px] text-red-400/60 px-3 italic">{agentName(d.target_agent)}: falha</span>
-              </div>
-            ) : (
-              <div className="flex justify-start pl-1">
-                <div className="flex items-center gap-2 px-3 py-1.5">
-                  <span className="text-[10px] text-zinc-600">{agentName(d.target_agent)}</span>
-                  <TypingIndicator />
+            {/* Each agent's response */}
+            {group.dispatches.map((d) => (
+              d.response ? (
+                <ChatBubbleInbound key={d.id} name={agentName(d.target_agent)} text={d.response} time={d.responded_at ?? d.updated_at} />
+              ) : d.status === "failed" ? (
+                <div key={d.id} className="flex justify-start">
+                  <span className="text-[10px] text-red-400/60 px-3 italic">{agentName(d.target_agent)}: falha</span>
                 </div>
-              </div>
-            )}
+              ) : (
+                <div key={d.id} className="flex justify-start pl-1">
+                  <div className="flex items-center gap-2 px-3 py-1.5">
+                    <span className="text-[10px] text-zinc-600">{agentName(d.target_agent)}</span>
+                    <TypingIndicator />
+                  </div>
+                </div>
+              )
+            ))}
           </div>
         ))}
         <div ref={chatEndRef} />
