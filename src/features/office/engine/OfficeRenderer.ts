@@ -23,8 +23,62 @@ if (typeof window !== "undefined") {
 // ── Character sprite cache (per agent) ───────────────────────────────────────
 const agentSpriteFrames = new Map<string, CharFrames>();
 const AGENT_PALETTES: Record<string, number> = {
-  faisca: 0, caio: 2, leticia: 3, clara: 4,
+  joao: 0, faisca: 0, caio: 2, leticia: 3, clara: 4,
 };
+
+// Hair color replacement map: agentId → { from: [r,g,b][], to: [r,g,b] }
+// char_0.png hair colors (brownish tones) → black for João
+const HAIR_RECOLOR: Record<string, { from: number[][]; to: number[] }> = {
+  joao: {
+    // Brown/dark-brown hair pixel colors in char_0 sprite (sampled)
+    from: [
+      [139, 90, 43], [117, 76, 36], [96, 62, 30], [74, 48, 24],
+      [160, 110, 60], [130, 85, 45], [110, 70, 35], [100, 65, 32],
+      [85, 55, 28], [150, 100, 55], [120, 80, 40], [105, 68, 33],
+    ],
+    to: [26, 26, 26], // #1a1a1a
+  },
+};
+
+function recolorFrames(frames: CharFrames, recolor: { from: number[][]; to: number[] }): CharFrames {
+  const threshold = 45; // Color distance tolerance
+
+  function recolorCanvas(src: HTMLCanvasElement): HTMLCanvasElement {
+    const c = document.createElement("canvas");
+    c.width = src.width;
+    c.height = src.height;
+    const ctx = c.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(src, 0, 0);
+    const imgData = ctx.getImageData(0, 0, c.width, c.height);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) continue; // skip transparent
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      for (const [fr, fg, fb] of recolor.from) {
+        const dist = Math.abs(r - fr) + Math.abs(g - fg) + Math.abs(b - fb);
+        if (dist < threshold) {
+          d[i] = recolor.to[0];
+          d[i + 1] = recolor.to[1];
+          d[i + 2] = recolor.to[2];
+          break;
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    return c;
+  }
+
+  function recolorDir(arr: HTMLCanvasElement[]): HTMLCanvasElement[] {
+    return arr.map(recolorCanvas);
+  }
+
+  return {
+    walk: { down: recolorDir(frames.walk.down), up: recolorDir(frames.walk.up), left: recolorDir(frames.walk.left), right: recolorDir(frames.walk.right) },
+    type: { down: recolorDir(frames.type.down), up: recolorDir(frames.type.up), left: recolorDir(frames.type.left), right: recolorDir(frames.type.right) },
+    read: { down: recolorDir(frames.read.down), up: recolorDir(frames.read.up), left: recolorDir(frames.read.left), right: recolorDir(frames.read.right) },
+  };
+}
 
 // Pre-load character sprites on module load
 if (typeof window !== "undefined") {
@@ -32,7 +86,9 @@ if (typeof window !== "undefined") {
   // Cache per agent
   for (const [agentId, palette] of Object.entries(AGENT_PALETTES)) {
     getCharFrames(palette).then((frames) => {
-      if (frames) agentSpriteFrames.set(agentId, frames);
+      if (!frames) return;
+      const recolor = HAIR_RECOLOR[agentId];
+      agentSpriteFrames.set(agentId, recolor ? recolorFrames(frames, recolor) : frames);
     });
   }
 }
