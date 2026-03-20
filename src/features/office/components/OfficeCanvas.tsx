@@ -143,9 +143,11 @@ export function OfficeCanvas() {
       const nameKey = agentCfg.name.toLowerCase();
       const statusData = statusMap.get(nameKey);
       const dispatchData = dispatchMap.get(nameKey);
+      // Only in_progress and review tasks keep agent at desk
+      // backlog and todo don't count as "actively working"
       const agentTasks = tasks?.filter(
         (t) => (t.owner?.toLowerCase() === nameKey || t.assigned_to?.toLowerCase() === nameKey) &&
-               t.column !== "done"
+               (t.column === "in_progress" || t.column === "review")
       ) ?? [];
 
       // Simple activity
