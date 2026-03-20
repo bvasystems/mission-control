@@ -2029,7 +2029,7 @@ function drawCharacter(
   // Name
   ctx.font = `bold 9px 'Inter', system-ui, sans-serif`;
   const nameW = ctx.measureText(nameStr).width + 14;
-  const tagH = isHovered || isSelected ? 26 : 16;
+  const tagH = 16;
   roundRect(ctx, x - nameW / 2, tagY - 8, nameW, tagH, 5);
   ctx.fillStyle = isSelected
     ? "rgba(99,102,241,0.9)"
@@ -2049,9 +2049,14 @@ function drawCharacter(
 
   // Role (always visible below name on hover/select)
   if (isHovered || isSelected) {
+    const roleY = y + bob - CHAR_H / 2 - 10;
     ctx.font = "7px 'Inter', system-ui, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.45)";
-    ctx.fillText(agent.role, x, tagY + 11);
+    const roleW = ctx.measureText(agent.role).width + 12;
+    roundRect(ctx, x - roleW / 2, roleY - 7, roleW, 14, 4);
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.fillText(agent.role, x, roleY);
   }
 
   // ── Status dot (next to nametag) ────────────────────────────────────────────
@@ -2218,7 +2223,7 @@ function drawCharacterOverlays(
   ctx.textBaseline = "middle";
   ctx.font = "bold 9px 'Inter', system-ui, sans-serif";
   const nameW = ctx.measureText(nameStr).width + 14;
-  const tagH = isHovered || isSelected ? 26 : 16;
+  const tagH = 16;
   roundRect(ctx, x - nameW / 2, tagY - 8, nameW, tagH, 5);
   ctx.fillStyle = isSelected
     ? "rgba(99,102,241,0.9)"
@@ -2232,9 +2237,14 @@ function drawCharacterOverlays(
   ctx.fillStyle = "#fff";
   ctx.fillText(nameStr, x, tagY);
   if (isHovered || isSelected) {
+    const roleY = y + bob - CHAR_H / 2 - 10;
     ctx.font = "7px 'Inter', system-ui, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.45)";
-    ctx.fillText(agent.role, x, tagY + 11);
+    const roleW = ctx.measureText(agent.role).width + 12;
+    roundRect(ctx, x - roleW / 2, roleY - 7, roleW, 14, 4);
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.fillText(agent.role, x, roleY);
   }
 
   // Status dot
