@@ -117,26 +117,33 @@ export function OfficeCanvas() {
     state.agentDispatches = dispatchMap;
 
     // 2b. Detect new responses → trigger flash + unread badge on agent
-    // Key uses id+":done" to detect the transition to done (not just seeing the dispatch)
     if (dispatches) {
       for (const d of dispatches) {
-        const responseKey = `${d.id}:done`;
-        if (d.status === "done" && d.response && !seenResponsesRef.current.has(responseKey)) {
-          seenResponsesRef.current.add(responseKey);
-          // Skip dispatches older than 2 minutes (avoid flash on page load)
-          const age = Date.now() - new Date(d.responded_at ?? d.updated_at).getTime();
-          if (age > 120_000) continue;
+        // Only care about completed dispatches with a response
+        if (d.status !== "done" || !d.response) continue;
 
-          const agentId = AGENTS.find((a) => a.name.toLowerCase() === d.target_agent.toLowerCase())?.id;
-          if (agentId) {
-            state.agentFlash.set(agentId, performance.now() + 3000);
-            state.agentUnread.set(agentId, d.response);
-          }
+        const responseKey = `${d.id}:resp`;
+        if (seenResponsesRef.current.has(responseKey)) continue;
+        seenResponsesRef.current.add(responseKey);
+
+        // Skip old dispatches on initial page load (> 5 min)
+        const ts = d.responded_at ?? d.updated_at ?? d.created_at;
+        if (ts) {
+          const age = Date.now() - new Date(ts).getTime();
+          if (age > 300_000) continue;
+        }
+
+        const agentId = AGENTS.find((a) => a.name.toLowerCase() === d.target_agent.toLowerCase())?.id;
+        if (agentId) {
+          console.log("[office] Agent responded:", agentId, d.response.slice(0, 50));
+          state.agentFlash.set(agentId, performance.now() + 4000);
+          state.agentUnread.set(agentId, d.response);
         }
       }
-      if (seenResponsesRef.current.size > 200) {
+      // Cleanup
+      if (seenResponsesRef.current.size > 500) {
         const arr = [...seenResponsesRef.current];
-        seenResponsesRef.current = new Set(arr.slice(-100));
+        seenResponsesRef.current = new Set(arr.slice(-200));
       }
     }
 
