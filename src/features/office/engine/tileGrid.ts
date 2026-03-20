@@ -156,7 +156,7 @@ function markCorridor(g: TileType[][], px: number, py: number, pw: number, ph: n
 function buildBlockedTiles(): Set<string> {
   const blocked = new Set<string>();
   // Furniture types that don't block movement
-  const passthrough = new Set(["rug", "lamp", "painting", "clock"]);
+  const passthrough = new Set(["rug", "lamp", "painting", "clock", "chair", "plant", "plant-big", "potted-tree", "trash-can"]);
 
   for (const f of FURNITURE) {
     if (passthrough.has(f.type)) continue;
