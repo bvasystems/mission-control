@@ -117,15 +117,19 @@ export function OfficeCanvas() {
     state.agentDispatches = dispatchMap;
 
     // 2b. Detect new responses → trigger flash + unread badge on agent
+    // Key uses id+":done" to detect the transition to done (not just seeing the dispatch)
     if (dispatches) {
       for (const d of dispatches) {
-        if (d.status === "done" && d.response && !seenResponsesRef.current.has(d.id)) {
-          seenResponsesRef.current.add(d.id);
+        const responseKey = `${d.id}:done`;
+        if (d.status === "done" && d.response && !seenResponsesRef.current.has(responseKey)) {
+          seenResponsesRef.current.add(responseKey);
+          // Skip dispatches older than 2 minutes (avoid flash on page load)
+          const age = Date.now() - new Date(d.responded_at ?? d.updated_at).getTime();
+          if (age > 120_000) continue;
+
           const agentId = AGENTS.find((a) => a.name.toLowerCase() === d.target_agent.toLowerCase())?.id;
           if (agentId) {
-            // Flash for 3 seconds
             state.agentFlash.set(agentId, performance.now() + 3000);
-            // Set unread with preview text (persists until chat opened)
             state.agentUnread.set(agentId, d.response);
           }
         }
