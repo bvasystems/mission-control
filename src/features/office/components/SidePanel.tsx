@@ -106,7 +106,11 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const agent = agents?.find(
-    (a) => a.name.toLowerCase() === agentId.toLowerCase() || a.id === agentId
+    (a) => normalizeName(a.name) === normalizeName(agentId)
+        || normalizeName(a.id) === normalizeName(agentId)
+        // Bridge alias: "faisca" matches DB "jota" / "Jota"
+        || (normalizeName(agentId) === "faisca" && ["jota", "faisca"].includes(normalizeName(a.name)))
+        || (normalizeName(agentId) === "faisca" && ["jota", "faisca"].includes(normalizeName(a.id)))
   );
 
   useEffect(() => {
@@ -114,6 +118,11 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   }, [history]);
 
   if (!agent) return <p className="text-zinc-500 text-sm py-8 text-center">Agente nao encontrado</p>;
+
+  // Bridge API name: "jota" in DB maps to "faisca" on Bridge
+  const isJotaFaisca = ["jota", "faisca"].includes(normalizeName(agent.name));
+  const bridgeName = isJotaFaisca ? "faisca" : normalizeName(agent.name);
+  const displayName = isJotaFaisca ? "Faísca" : agent.name;
 
   const agentTasks = allTasks?.filter(
     (t) => (t.owner?.toLowerCase() === agent.name.toLowerCase() ||
@@ -124,7 +133,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   const handleSend = async () => {
     if (!commandDraft.trim()) return;
     const result = await send({
-      targetAgent: normalizeName(agent.name),
+      targetAgent: bridgeName,
       commandText: commandDraft.trim(),
       actionType: "free_command",
     });
@@ -138,7 +147,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   const handleDelegateTask = async (task: Task) => {
     setShowTaskPicker(false);
     const result = await send({
-      targetAgent: normalizeName(agent.name),
+      targetAgent: bridgeName,
       commandText: `Tarefa delegada: ${task.title}`,
       actionType: "delegate_task",
       taskId: task.id,
@@ -153,7 +162,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
   const handleQuickAction = async (actionType: string, template: string) => {
     if (template && !template.endsWith(": ")) {
       const result = await send({
-        targetAgent: normalizeName(agent.name),
+        targetAgent: bridgeName,
         commandText: template,
         actionType,
       });
@@ -174,15 +183,15 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
           <div className="relative">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-lg"
-              style={{ backgroundColor: agentColorHex(agent.name) }}
+              style={{ backgroundColor: agentColorHex(displayName) }}
             >
-              {agent.name.charAt(0)}
+              {displayName.charAt(0)}
             </div>
             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-zinc-950 ${STATUS_DOT[agent.status]} ${agent.status === "active" ? "animate-pulse" : ""}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-white font-semibold text-sm truncate">{agent.name}</p>
+              <p className="text-white font-semibold text-sm truncate">{displayName}</p>
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
                 agent.status === "active" ? "text-emerald-400 bg-emerald-500/10" :
                 agent.status === "degraded" ? "text-amber-400 bg-amber-500/10" :
@@ -307,7 +316,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
         {!historyLoading && (!history || history.length === 0) && (
           <div className="flex flex-col items-center justify-center h-full text-zinc-600">
             <MessageSquare size={24} className="mb-2 text-zinc-700" />
-            <p className="text-xs">Envie uma mensagem para {agent.name}</p>
+            <p className="text-xs">Envie uma mensagem para {displayName}</p>
           </div>
         )}
         {[...(history ?? [])].reverse().map((d: AgentDispatch) => {
@@ -318,7 +327,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
             <div key={d.id} className="space-y-1.5">
               {isInbound ? (
                 <ChatBubbleInbound
-                  name={agent.name}
+                  name={displayName}
                   text={d.command_text}
                   time={d.created_at}
                   source={d.metadata && typeof d.metadata === "object" && "source" in d.metadata ? String(d.metadata.source) : undefined}
@@ -335,7 +344,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
                     </div>
                   </div>
                   {d.response ? (
-                    <ChatBubbleInbound name={agent.name} text={d.response} time={d.responded_at} />
+                    <ChatBubbleInbound name={displayName} text={d.response} time={d.responded_at} />
                   ) : d.status === "failed" ? (
                     <div className="flex justify-start">
                       <div className="bg-red-500/[0.06] border border-red-500/10 rounded-2xl rounded-bl-md px-3 py-1.5">
@@ -369,7 +378,7 @@ function AgentDetailPanel({ agentId }: { agentId: string }) {
             value={commandDraft}
             onChange={(e) => setCommandDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
-            placeholder={`Mensagem para ${agent.name}...`}
+            placeholder={`Mensagem para ${displayName}...`}
             disabled={sending}
             className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/10 disabled:opacity-40 transition-all"
           />
