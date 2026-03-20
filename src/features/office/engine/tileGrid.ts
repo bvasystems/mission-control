@@ -78,11 +78,11 @@ function buildGrid(): TileType[][] {
     }
   }
 
-  // 3. Mark corridors between rooms
-  // Horizontal corridor row 1↔2 (y ~305-365)
-  markCorridor(g, 30, 305, CANVAS_W - 60, 60);
-  // Horizontal corridor row 2↔3 (y ~615-665)
-  markCorridor(g, 30, 615, CANVAS_W - 60, 50);
+  // 3. Mark corridors between rooms (wide for easy navigation)
+  // Horizontal corridor row 1↔2 (y ~285-385)
+  markCorridor(g, 20, 285, CANVAS_W - 40, 100);
+  // Horizontal corridor row 2↔3 (y ~595-695)
+  markCorridor(g, 20, 595, CANVAS_W - 40, 100);
 
   return g;
 }
@@ -94,7 +94,7 @@ function getDoorTiles(
   width: number
 ): Array<{ col: number; row: number }> {
   const tiles: Array<{ col: number; row: number }> = [];
-  const doorPad = 2; // Extra tiles around door for smooth transit
+  const doorPad = 3; // Extra tiles around door for smooth transit
 
   if (side === "top") {
     const startCol = Math.floor((room.x + offset) / TILE_SIZE);
