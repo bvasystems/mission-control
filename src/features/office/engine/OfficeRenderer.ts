@@ -1650,80 +1650,140 @@ function drawCharacter(
   ctx.fillStyle = "rgba(0,0,0,0.35)";
   ctx.fill();
 
-  // ── Legs/feet ───────────────────────────────────────────────────────────────
+  // ── Gender-aware body rendering ─────────────────────────────────────────────
+  const isFemale = agent.gender === "female";
   const legSpread = anim.walking ? Math.sin(anim.walkCycle * Math.PI / 2) * 4 : 0;
-
-  // Left leg
-  roundRect(ctx, -6 - (dir === "left" ? 1 : 0), CHAR_H / 2 - 9 + legSpread, 6, 11, 2);
-  ctx.fillStyle = agent.pantsColor;
-  ctx.fill();
-
-  // Right leg
-  roundRect(ctx, 1 + (dir === "right" ? 1 : 0), CHAR_H / 2 - 9 - legSpread, 6, 11, 2);
-  ctx.fillStyle = agent.pantsColor;
-  ctx.fill();
-
-  // Shoes
-  roundRect(ctx, -7, CHAR_H / 2 + legSpread, 7, 5, 1.5);
-  ctx.fillStyle = "#1a1a1a";
-  ctx.fill();
-  // Shoe sole highlight
-  ctx.fillStyle = "rgba(255,255,255,0.05)";
-  ctx.fillRect(-6, CHAR_H / 2 + legSpread + 3, 5, 1);
-
-  roundRect(ctx, 1, CHAR_H / 2 - legSpread, 7, 5, 1.5);
-  ctx.fillStyle = "#1a1a1a";
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.05)";
-  ctx.fillRect(2, CHAR_H / 2 - legSpread + 3, 5, 1);
-
-  // ── Body (shirt) ──────────────────────────────────────────────────────────
-  roundRect(ctx, -CHAR_W / 2, -CHAR_H / 2, CHAR_W, CHAR_H - 6, 4);
-  ctx.fillStyle = agent.shirtColor;
-  ctx.fill();
-
-  // Body shading
-  const bodyGrad = ctx.createLinearGradient(-CHAR_W / 2, -CHAR_H / 2, CHAR_W / 2, CHAR_H / 2);
-  bodyGrad.addColorStop(0, "rgba(255,255,255,0.12)");
-  bodyGrad.addColorStop(1, "rgba(0,0,0,0.18)");
-  ctx.fillStyle = bodyGrad;
-  ctx.fill();
-
-  // Collar detail
-  ctx.strokeStyle = "rgba(0,0,0,0.15)";
-  ctx.lineWidth = 0.5;
-  ctx.beginPath();
-  ctx.moveTo(-4, -CHAR_H / 2 + 2);
-  ctx.lineTo(0, -CHAR_H / 2 + 5);
-  ctx.lineTo(4, -CHAR_H / 2 + 2);
-  ctx.stroke();
-
-  // ── Arms ──────────────────────────────────────────────────────────────────
   const armSwing = anim.walking ? Math.sin(anim.walkCycle * Math.PI / 2) * 3 : 0;
 
-  // Left arm
-  roundRect(ctx, -CHAR_W / 2 - 5, -CHAR_H / 2 + 3 + armSwing, 5, 14, 2);
-  ctx.fillStyle = agent.shirtColor;
-  ctx.fill();
-  // Arm shading
-  ctx.fillStyle = "rgba(0,0,0,0.08)";
-  ctx.fill();
-  // Hand
-  ctx.beginPath();
-  ctx.arc(-CHAR_W / 2 - 2.5, -CHAR_H / 2 + 17 + armSwing, 3, 0, Math.PI * 2);
-  ctx.fillStyle = agent.skinColor;
-  ctx.fill();
+  if (isFemale) {
+    // ── Female body: skirt + slimmer torso ────────────────────────────────
+    // Skirt (A-line, wider at bottom)
+    ctx.beginPath();
+    ctx.moveTo(-CHAR_W / 2 + 1, -2);
+    ctx.lineTo(-CHAR_W / 2 - 2, CHAR_H / 2 - 6);
+    ctx.lineTo(CHAR_W / 2 + 2, CHAR_H / 2 - 6);
+    ctx.lineTo(CHAR_W / 2 - 1, -2);
+    ctx.closePath();
+    ctx.fillStyle = agent.pantsColor;
+    ctx.fill();
+    // Skirt fold highlights
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(-1, 0); ctx.lineTo(-2, CHAR_H / 2 - 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(2, 1); ctx.lineTo(3, CHAR_H / 2 - 7); ctx.stroke();
 
-  // Right arm
-  roundRect(ctx, CHAR_W / 2, -CHAR_H / 2 + 3 - armSwing, 5, 14, 2);
-  ctx.fillStyle = agent.shirtColor;
-  ctx.fill();
-  ctx.fillStyle = "rgba(0,0,0,0.08)";
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(CHAR_W / 2 + 2.5, -CHAR_H / 2 + 17 - armSwing, 3, 0, Math.PI * 2);
-  ctx.fillStyle = agent.skinColor;
-  ctx.fill();
+    // Legs (visible below skirt, slimmer, skin-colored)
+    roundRect(ctx, -5 - (dir === "left" ? 1 : 0), CHAR_H / 2 - 7 + legSpread, 5, 9, 2);
+    ctx.fillStyle = agent.skinColor;
+    ctx.fill();
+    roundRect(ctx, 1 + (dir === "right" ? 1 : 0), CHAR_H / 2 - 7 - legSpread, 5, 9, 2);
+    ctx.fillStyle = agent.skinColor;
+    ctx.fill();
+
+    // Shoes (smaller, darker)
+    roundRect(ctx, -6, CHAR_H / 2 + legSpread, 6, 4, 1.5);
+    ctx.fillStyle = "#2a2a2a";
+    ctx.fill();
+    roundRect(ctx, 1, CHAR_H / 2 - legSpread, 6, 4, 1.5);
+    ctx.fillStyle = "#2a2a2a";
+    ctx.fill();
+
+    // Torso (slightly narrower, fitted)
+    const torsoW = CHAR_W - 2;
+    roundRect(ctx, -torsoW / 2, -CHAR_H / 2, torsoW, CHAR_H / 2, 4);
+    ctx.fillStyle = agent.shirtColor;
+    ctx.fill();
+    const bodyGrad = ctx.createLinearGradient(-torsoW / 2, -CHAR_H / 2, torsoW / 2, 0);
+    bodyGrad.addColorStop(0, "rgba(255,255,255,0.12)");
+    bodyGrad.addColorStop(1, "rgba(0,0,0,0.15)");
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+
+    // Neckline (round)
+    ctx.beginPath();
+    ctx.moveTo(-3, -CHAR_H / 2 + 1);
+    ctx.quadraticCurveTo(0, -CHAR_H / 2 + 6, 3, -CHAR_H / 2 + 1);
+    ctx.strokeStyle = agent.skinColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Arms (slimmer)
+    roundRect(ctx, -torsoW / 2 - 4, -CHAR_H / 2 + 3 + armSwing, 4, 12, 2);
+    ctx.fillStyle = agent.shirtColor;
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.06)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-torsoW / 2 - 2, -CHAR_H / 2 + 15 + armSwing, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = agent.skinColor;
+    ctx.fill();
+    roundRect(ctx, torsoW / 2, -CHAR_H / 2 + 3 - armSwing, 4, 12, 2);
+    ctx.fillStyle = agent.shirtColor;
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.06)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(torsoW / 2 + 2, -CHAR_H / 2 + 15 - armSwing, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = agent.skinColor;
+    ctx.fill();
+  } else {
+    // ── Male body: pants + broader torso ──────────────────────────────────
+    // Left leg
+    roundRect(ctx, -6 - (dir === "left" ? 1 : 0), CHAR_H / 2 - 9 + legSpread, 6, 11, 2);
+    ctx.fillStyle = agent.pantsColor;
+    ctx.fill();
+    // Right leg
+    roundRect(ctx, 1 + (dir === "right" ? 1 : 0), CHAR_H / 2 - 9 - legSpread, 6, 11, 2);
+    ctx.fillStyle = agent.pantsColor;
+    ctx.fill();
+    // Shoes
+    roundRect(ctx, -7, CHAR_H / 2 + legSpread, 7, 5, 1.5);
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    ctx.fillRect(-6, CHAR_H / 2 + legSpread + 3, 5, 1);
+    roundRect(ctx, 1, CHAR_H / 2 - legSpread, 7, 5, 1.5);
+    ctx.fillStyle = "#1a1a1a";
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    ctx.fillRect(2, CHAR_H / 2 - legSpread + 3, 5, 1);
+    // Body (shirt)
+    roundRect(ctx, -CHAR_W / 2, -CHAR_H / 2, CHAR_W, CHAR_H - 6, 4);
+    ctx.fillStyle = agent.shirtColor;
+    ctx.fill();
+    const bodyGrad = ctx.createLinearGradient(-CHAR_W / 2, -CHAR_H / 2, CHAR_W / 2, CHAR_H / 2);
+    bodyGrad.addColorStop(0, "rgba(255,255,255,0.12)");
+    bodyGrad.addColorStop(1, "rgba(0,0,0,0.18)");
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+    // Collar detail
+    ctx.strokeStyle = "rgba(0,0,0,0.15)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-4, -CHAR_H / 2 + 2);
+    ctx.lineTo(0, -CHAR_H / 2 + 5);
+    ctx.lineTo(4, -CHAR_H / 2 + 2);
+    ctx.stroke();
+    // Arms
+    roundRect(ctx, -CHAR_W / 2 - 5, -CHAR_H / 2 + 3 + armSwing, 5, 14, 2);
+    ctx.fillStyle = agent.shirtColor;
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.08)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-CHAR_W / 2 - 2.5, -CHAR_H / 2 + 17 + armSwing, 3, 0, Math.PI * 2);
+    ctx.fillStyle = agent.skinColor;
+    ctx.fill();
+    roundRect(ctx, CHAR_W / 2, -CHAR_H / 2 + 3 - armSwing, 5, 14, 2);
+    ctx.fillStyle = agent.shirtColor;
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.08)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(CHAR_W / 2 + 2.5, -CHAR_H / 2 + 17 - armSwing, 3, 0, Math.PI * 2);
+    ctx.fillStyle = agent.skinColor;
+    ctx.fill();
+  }
 
   // ── Head ──────────────────────────────────────────────────────────────────
   const headY = -CHAR_H / 2 - HEAD_R + 2;
@@ -1791,15 +1851,49 @@ function drawCharacter(
 
     // Eyebrows
     ctx.strokeStyle = agent.hairColor;
-    ctx.lineWidth = 0.8;
+    ctx.lineWidth = isFemale ? 0.6 : 0.8;
     ctx.beginPath();
-    ctx.moveTo(-5 + faceOffX, headY - 3);
-    ctx.lineTo(-2 + faceOffX, headY - 3.5);
+    if (isFemale) {
+      // Thinner, more arched eyebrows
+      ctx.moveTo(-5.5 + faceOffX, headY - 2.5);
+      ctx.quadraticCurveTo(-3.5 + faceOffX, headY - 4.2, -1.5 + faceOffX, headY - 3);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(1.5 + faceOffX, headY - 3);
+      ctx.quadraticCurveTo(3.5 + faceOffX, headY - 4.2, 5.5 + faceOffX, headY - 2.5);
+    } else {
+      ctx.moveTo(-5 + faceOffX, headY - 3);
+      ctx.lineTo(-2 + faceOffX, headY - 3.5);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(2 + faceOffX, headY - 3.5);
+      ctx.lineTo(5 + faceOffX, headY - 3);
+    }
     ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(2 + faceOffX, headY - 3.5);
-    ctx.lineTo(5 + faceOffX, headY - 3);
-    ctx.stroke();
+
+    // Eyelashes (female only)
+    if (isFemale) {
+      ctx.strokeStyle = "#1a1a1a";
+      ctx.lineWidth = 0.6;
+      // Left eye lashes
+      ctx.beginPath();
+      ctx.moveTo(-5 + faceOffX, headY - 1.5);
+      ctx.lineTo(-5.8 + faceOffX, headY - 2.8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-4 + faceOffX, headY - 2);
+      ctx.lineTo(-4.2 + faceOffX, headY - 3.2);
+      ctx.stroke();
+      // Right eye lashes
+      ctx.beginPath();
+      ctx.moveTo(5 + faceOffX, headY - 1.5);
+      ctx.lineTo(5.8 + faceOffX, headY - 2.8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(4 + faceOffX, headY - 2);
+      ctx.lineTo(4.2 + faceOffX, headY - 3.2);
+      ctx.stroke();
+    }
 
     // Mouth
     if (isSelected || isHovered) {
@@ -1819,13 +1913,15 @@ function drawCharacter(
       ctx.stroke();
     }
 
-    // Cheek blush (subtle)
+    // Cheek blush
+    const blushAlpha = isFemale ? 0.18 : 0.08;
+    const blushSize = isFemale ? 2.2 : 1.8;
     ctx.beginPath();
-    ctx.arc(-5 + faceOffX, headY + 1.5, 1.8, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,150,150,0.08)";
+    ctx.arc(-5 + faceOffX, headY + 1.5, blushSize, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,150,150,${blushAlpha})`;
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(5 + faceOffX, headY + 1.5, 1.8, 0, Math.PI * 2);
+    ctx.arc(5 + faceOffX, headY + 1.5, blushSize, 0, Math.PI * 2);
     ctx.fill();
   }
 

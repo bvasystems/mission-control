@@ -377,6 +377,7 @@ export const HOTSPOTS: Hotspot[] = [
 export interface AgentConfig {
   id: string; name: string; role: string;
   department: string;
+  gender: "male" | "female";
   skinColor: string; shirtColor: string; hairColor: string; pantsColor: string;
   hairStyle: "short" | "medium" | "long" | "curly";
   defaultRoom: string; spawnX: number; spawnY: number;
@@ -386,38 +387,38 @@ export interface AgentConfig {
 export const AGENTS: AgentConfig[] = [
   {
     id: "joao", name: "João", role: "CEO / Operador",
-    department: "diretoria",
+    department: "diretoria", gender: "male",
     skinColor: "#f0c8a0", shirtColor: "#3b82f6", hairColor: "#4a3728", pantsColor: "#1e3a5f",
     hairStyle: "short",
-    defaultRoom: "diretoria", spawnX: 505, spawnY: 180,  // chair at desk 1
+    defaultRoom: "diretoria", spawnX: 505, spawnY: 180,
   },
   {
     id: "faisca", name: "Faísca", role: "CTO / Líder",
-    department: "diretoria",
+    department: "diretoria", gender: "male",
     skinColor: "#f0c8a0", shirtColor: "#8b5cf6", hairColor: "#2d1b4e", pantsColor: "#3b2066",
     hairStyle: "medium",
-    defaultRoom: "diretoria", spawnX: 675, spawnY: 180,  // chair at desk 2
+    defaultRoom: "diretoria", spawnX: 675, spawnY: 180,
   },
   {
     id: "caio", name: "Caio", role: "Desenvolvedor",
-    department: "desenvolvimento",
+    department: "desenvolvimento", gender: "male",
     skinColor: "#d4a574", shirtColor: "#10b981", hairColor: "#1a1a1a", pantsColor: "#064e3b",
     hairStyle: "curly",
-    defaultRoom: "desenvolvimento", spawnX: 106, spawnY: 472, // chair at desk row1-col1
+    defaultRoom: "desenvolvimento", spawnX: 106, spawnY: 472,
   },
   {
     id: "leticia", name: "Letícia", role: "Operações / Infra",
-    department: "operacoes",
+    department: "operacoes", gender: "female",
     skinColor: "#f0c8a0", shirtColor: "#f59e0b", hairColor: "#8b6914", pantsColor: "#78350f",
     hairStyle: "long",
-    defaultRoom: "operacoes", spawnX: 691, spawnY: 495,  // chair at ops desk 1
+    defaultRoom: "operacoes", spawnX: 691, spawnY: 495,
   },
   {
     id: "clara", name: "Clara", role: "Desenvolvedora",
-    department: "desenvolvimento",
+    department: "desenvolvimento", gender: "female",
     skinColor: "#e8b890", shirtColor: "#ec4899", hairColor: "#5c1a3a", pantsColor: "#831843",
     hairStyle: "medium",
-    defaultRoom: "desenvolvimento", spawnX: 229, spawnY: 472, // chair at desk row1-col2
+    defaultRoom: "desenvolvimento", spawnX: 229, spawnY: 472,
   },
 ];
 
