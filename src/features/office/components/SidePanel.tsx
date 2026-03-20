@@ -462,12 +462,12 @@ function ActionCard({ action, onApprove, onReject, loading }: {
 
       {/* Payload summary */}
       <div className="text-xs text-zinc-400 leading-relaxed">
-        {payload.agent && <span>Agente: <span className="text-zinc-300">{payload.agent as string}</span> · </span>}
-        {payload.message && <p className="text-zinc-300 mt-0.5">"{(payload.message as string).slice(0, 120)}"</p>}
-        {payload.task && <p className="text-zinc-300 mt-0.5">Task: {payload.task as string}</p>}
-        {payload.title && <p className="text-zinc-300 mt-0.5">Task: {payload.title as string}</p>}
-        {payload.topic && <p className="text-zinc-300 mt-0.5">Tema: {payload.topic as string}</p>}
-        {payload.issue && <p className="text-zinc-300 mt-0.5">Problema: {payload.issue as string}</p>}
+        {payload.agent && <span>Agente: <span className="text-zinc-300">{String(payload.agent)}</span> · </span>}
+        {payload.message && <p className="text-zinc-300 mt-0.5">&quot;{String(payload.message).slice(0, 120)}&quot;</p>}
+        {payload.task && <p className="text-zinc-300 mt-0.5">Task: {String(payload.task)}</p>}
+        {payload.title && <p className="text-zinc-300 mt-0.5">Task: {String(payload.title)}</p>}
+        {payload.topic && <p className="text-zinc-300 mt-0.5">Tema: {String(payload.topic)}</p>}
+        {payload.issue && <p className="text-zinc-300 mt-0.5">Problema: {String(payload.issue)}</p>}
         {payload.agents && <p className="text-zinc-300 mt-0.5">Participantes: {(payload.agents as string[]).join(", ")}</p>}
       </div>
 
